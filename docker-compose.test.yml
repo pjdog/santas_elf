@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    expose:
+      - "6379"
+
+  server-tests:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: test
+    environment:
+      NODE_ENV: test
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - redis
+    command: ["npm", "test", "--", "--runInBand", "--watch=false"]
+
+  client-tests:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    environment:
+      CI: "true"
+      NODE_ENV: test
+    command: ["npm", "test", "--", "--runInBand", "--watch=false"]
+    depends_on:
+      - server-tests

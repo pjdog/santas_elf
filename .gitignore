@@ -1,0 +1,6 @@
+.env
+server/dist
+client/build
+node_modules
+*.log
+server/coverage

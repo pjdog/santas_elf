@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Lato&family=Mountains+of+Christmas&display=swap');
+@import './theme.css';
+
+body {
+  margin: 0;
+  font-family: var(--body-font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--heading-font);
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}

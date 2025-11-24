@@ -1,0 +1,48 @@
+.shopping-list {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border: 1px solid var(--accent-color);
+    border-radius: 8px;
+  }
+  
+  .shopping-list h4 {
+    margin-top: 0;
+    color: var(--secondary-color);
+  }
+  
+  .shopping-list ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .shopping-list li {
+    margin-bottom: 5px;
+  }
+  
+  .ecommerce-buttons {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+  }
+  
+  .ecommerce-buttons button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+  }
+  
+  .ecommerce-buttons .instacart {
+    background-color: #4CAF50;
+  }
+  
+  .ecommerce-buttons .amazon {
+    background-color: #FF9900;
+  }
+  
+  .ecommerce-buttons .wholefoods {
+    background-color: #006400;
+  }
+  

@@ -1,0 +1,27 @@
+{
+    "recipes": [
+      {
+        "id": "1",
+        "name": "Classic Sugar Cookies",
+        "description": "Perfect for holiday decorating.",
+        "ingredients": [],
+        "instructions": [],
+        "prepTime": "20 min",
+        "cookTime": "10 min",
+        "servings": 24,
+        "dietary": ["vegetarian"]
+      }
+    ],
+    "gifts": [
+      {
+        "id": "1",
+        "name": "Cozy Winter Scarf",
+        "description": "A warm and stylish scarf, perfect for cold weather.",
+        "recipient": ["mom", "friend", "sister"],
+        "interests": ["fashion", "comfort"],
+        "budget": { "min": 20, "max": 40 },
+        "link": "https://example.com/scarf"
+      }
+    ]
+  }
+  

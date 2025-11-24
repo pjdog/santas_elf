@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/.env"
+ENV_TEMPLATE="$SCRIPT_DIR/.env.template"
+
+# Check for required tools
+check_tools() {
+    for tool in docker lsof; do
+        if ! command -v "$tool" &> /dev/null; then
+            echo "Error: $tool is not installed. Please install '$tool'." >&2
+            exit 1
+        fi
+    done
+}
+
+ensure_env() {
+  if [[ ! -f "$ENV_FILE" ]];
+  then
+    if [[ ! -f "$ENV_TEMPLATE" ]];
+    then
+      echo "Environment template $ENV_TEMPLATE is missing." >&2
+      exit 1
+    fi
+    cp "$ENV_TEMPLATE" "$ENV_FILE"
+    echo "Created .env from template. Update $ENV_FILE if you need custom values."
+  fi
+}
+
+usage() {
+  echo "Usage: $0 {up|down|restart|clean|logs|fix-ports|test}" >&2
+  echo "  up         : Start the application"
+  echo "  down       : Stop the application (removes orphans)"
+  echo "  restart    : Restart the application"
+  echo "  clean      : Stop app, remove volumes (resets DB)"
+  echo "  logs       : Follow container logs"
+  echo "  fix-ports  : Force kill processes hogging ports 3000 or 5000 (Use if 'up' fails)"
+  echo "  test       : Run server and client test suites in Docker (non-interactive)"
+  echo ""
+  echo "Options for 'up':"
+  echo "  --no-cache : Rebuild without cache"
+  exit 1
+}
+
+# Parse args
+ACTION="${1:-}" || true
+shift || true
+
+# Ensure we have tools before running potentially destructive commands
+if [[ "$ACTION" == "fix-ports" ]]; then
+    check_tools
+fi
+
+case "$ACTION" in
+  up)
+    ensure_env
+    
+    if [[ "${1:-}" == "--no-cache" ]]; then
+        echo "Rebuilding without cache..."
+        (cd "$SCRIPT_DIR" && docker-compose build --no-cache)
+        shift
+    fi
+    
+    echo "Starting application..."
+    (cd "$SCRIPT_DIR" && docker-compose up -d --build --remove-orphans)
+    echo "✅ Application started at http://localhost:8080"
+    ;;
+  down)
+    echo "Stopping application..."
+    (cd "$SCRIPT_DIR" && docker-compose down --remove-orphans)
+    echo "✅ Application stopped."
+    ;;
+  restart)
+    echo "Restarting application..."
+    (cd "$SCRIPT_DIR" && docker-compose down --remove-orphans)
+    ensure_env
+    (cd "$SCRIPT_DIR" && docker-compose up -d --build --remove-orphans)
+    echo "✅ Application restarted."
+    ;;
+  clean)
+    echo "Cleaning application state..."
+    (cd "$SCRIPT_DIR" && docker-compose down -v --remove-orphans)
+    echo "✅ Application cleaned (volumes removed)."
+    ;;
+  logs)
+    (cd "$SCRIPT_DIR" && docker-compose logs -f)
+    ;;
+  fix-ports)
+    echo "🔍 Checking for stuck processes on ports 3000, 5000..."
+    # Find PIDs listening on these ports
+    PIDS=$(lsof -ti :3000,5000 2>/dev/null || true)
+    if [ -n "$PIDS" ]; then
+        echo "⚠️  Found processes occupying ports: $PIDS"
+        echo "💥 Killing them..."
+        # We use sudo implicitly if needed, or expect user to run as sudo if simple kill fails
+        kill -9 $PIDS || sudo kill -9 $PIDS
+        echo "✅ Ports cleared."
+    else
+        echo "✅ No blocking processes found."
+    fi
+    ;;
+  test)
+    ensure_env
+    echo "Running test suites in Docker..."
+    (cd "$SCRIPT_DIR" && docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit)
+    echo "✅ Tests completed."
+    ;;
+  *)
+    usage
+    ;;
+esac
