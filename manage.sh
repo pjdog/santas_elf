@@ -5,6 +5,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
 ENV_TEMPLATE="$SCRIPT_DIR/.env.template"
 
+# Prefer modern Docker Compose plugin; fallback to legacy docker-compose
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+  COMPOSE="docker compose"
+else
+  COMPOSE="docker-compose"
+fi
+
+# Explicitly set API version to satisfy newer daemons when old clients are present
+export DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44}
+
 # Check for required tools
 check_tools() {
     for tool in docker lsof; do
@@ -58,33 +68,33 @@ case "$ACTION" in
     
     if [[ "${1:-}" == "--no-cache" ]]; then
         echo "Rebuilding without cache..."
-        (cd "$SCRIPT_DIR" && docker-compose build --no-cache)
+        (cd "$SCRIPT_DIR" && ${COMPOSE} build --no-cache)
         shift
     fi
     
     echo "Starting application..."
-    (cd "$SCRIPT_DIR" && docker-compose up -d --build --remove-orphans)
+    (cd "$SCRIPT_DIR" && ${COMPOSE} up -d --build --remove-orphans)
     echo "✅ Application started at http://localhost:8080"
     ;;
   down)
     echo "Stopping application..."
-    (cd "$SCRIPT_DIR" && docker-compose down --remove-orphans)
+    (cd "$SCRIPT_DIR" && ${COMPOSE} down --remove-orphans)
     echo "✅ Application stopped."
     ;;
   restart)
     echo "Restarting application..."
-    (cd "$SCRIPT_DIR" && docker-compose down --remove-orphans)
+    (cd "$SCRIPT_DIR" && ${COMPOSE} down --remove-orphans)
     ensure_env
-    (cd "$SCRIPT_DIR" && docker-compose up -d --build --remove-orphans)
+    (cd "$SCRIPT_DIR" && ${COMPOSE} up -d --build --remove-orphans)
     echo "✅ Application restarted."
     ;;
   clean)
     echo "Cleaning application state..."
-    (cd "$SCRIPT_DIR" && docker-compose down -v --remove-orphans)
+    (cd "$SCRIPT_DIR" && ${COMPOSE} down -v --remove-orphans)
     echo "✅ Application cleaned (volumes removed)."
     ;;
   logs)
-    (cd "$SCRIPT_DIR" && docker-compose logs -f)
+    (cd "$SCRIPT_DIR" && ${COMPOSE} logs -f)
     ;;
   fix-ports)
     echo "🔍 Checking for stuck processes on ports 3000, 5000..."
