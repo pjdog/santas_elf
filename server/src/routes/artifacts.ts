@@ -1,90 +1,103 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import redisClient from '../config/db';
+import { AgentNote } from '../models/types';
 
 const router = Router();
 
-// Types for our artifacts
-interface TodoItem {
+export interface TodoItem {
   id: string;
   text: string;
   completed: boolean;
 }
 
-interface SavedArtifacts {
-  todos: TodoItem[];
-  recipes: any[]; // Using loose type for now to store full recipe objects
-  gifts: any[];
+export interface Table {
+    id: string;
+    name: string;
+    seats: number;
+    guests: string[];
 }
 
-const INITIAL_ARTIFACTS: SavedArtifacts = {
+export interface Budget {
+    limit: number;
+    // 'current' is typically derived from gifts, but we can store a manual override or cached value if needed.
+    // For now, let's calculate it on the fly or let the frontend calculate it.
+    // We'll just store the limit.
+}
+
+export interface SavedArtifacts {
+  todos: TodoItem[];
+  recipes: any[]; 
+  gifts: any[];
+  decorations: string[];
+  seating: Table[];
+  budget: Budget;
+  agentNotes: AgentNote[];
+}
+
+export const INITIAL_ARTIFACTS: SavedArtifacts = {
   todos: [],
   recipes: [],
-  gifts: []
+  gifts: [],
+  decorations: [],
+  seating: [],
+  budget: { limit: 0 },
+  agentNotes: []
 };
 
-// --- Security & Validation Helpers ---
-
-// 1. Rate Limiting Middleware (Redis-based)
-// Allows 20 write requests per minute per user
 const rateLimit = async (req: Request, res: Response, next: NextFunction) => {
     // @ts-ignore
     const userId = req.user?.id;
-    if (!userId) return next(); // Auth middleware handles this, but safety first
+    if (!userId) return next();
 
     const key = `ratelimit:artifacts:${userId}`;
     try {
         const current = await redisClient.incr(key);
         if (current === 1) {
-            await redisClient.expire(key, 60); // 1 minute window
+            await redisClient.expire(key, 60);
         }
-        if (current > 20) {
+        if (current > 30) { // Increased limit slightly for agent interactions
             return res.status(429).json({ message: 'Too many updates. Please wait a moment.' });
         }
         next();
     } catch (e) {
         console.error('Rate limit error', e);
-        next(); // Fail open if redis issues, or fail closed? Fail open for UX.
+        next();
     }
 };
 
-// 2. Input Validation
 const validateArtifacts = (data: any): { valid: boolean; cleaned?: SavedArtifacts } => {
     if (!data || typeof data !== 'object') return { valid: false };
 
-    // Validate Todos
     const todos: TodoItem[] = [];
     if (Array.isArray(data.todos)) {
-        if (data.todos.length > 100) return { valid: false }; // Limit count
+        if (data.todos.length > 100) return { valid: false };
         for (const item of data.todos) {
             if (
                 typeof item.id === 'string' && item.id.length < 50 &&
-                typeof item.text === 'string' && item.text.length <= 500 && // Max text length
+                typeof item.text === 'string' && item.text.length <= 500 &&
                 typeof item.completed === 'boolean'
             ) {
                 todos.push({ 
                     id: item.id, 
-                    text: item.text.replace(/</g, "&lt;").replace(/>/g, "&gt;"), // Basic sanitization
+                    text: item.text.replace(/</g, "&lt;").replace(/>/g, "&gt;"),
                     completed: item.completed 
                 });
             }
         }
     }
 
-    // Validate Recipes (Basic structure check)
     const recipes: any[] = [];
     if (Array.isArray(data.recipes)) {
         if (data.recipes.length > 50) return { valid: false };
         for (const item of data.recipes) {
             if (item && typeof item === 'object' && item.name) {
-                // Allow pass-through but limit size
-                if (JSON.stringify(item).length < 5000) {
+                if (JSON.stringify(item).length < 10000) { // Increased limit for detailed recipes
                     recipes.push(item);
                 }
             }
         }
     }
 
-    // Validate Gifts
     const gifts: any[] = [];
     if (Array.isArray(data.gifts)) {
         if (data.gifts.length > 50) return { valid: false };
@@ -97,24 +110,103 @@ const validateArtifacts = (data: any): { valid: boolean; cleaned?: SavedArtifact
         }
     }
 
+    const decorations: string[] = [];
+    if (Array.isArray(data.decorations)) {
+        if (data.decorations.length > 50) return { valid: false };
+        for (const item of data.decorations) {
+            if (typeof item === 'string' && item.length < 2000) {
+                decorations.push(item.replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+            }
+        }
+    }
+
+    const seating: Table[] = [];
+    if (Array.isArray(data.seating)) {
+        if (data.seating.length > 20) return { valid: false };
+        for (const item of data.seating) {
+            if (
+                typeof item.id === 'string' && 
+                typeof item.name === 'string' && 
+                typeof item.seats === 'number' &&
+                Array.isArray(item.guests)
+            ) {
+                // Sanitize guest names
+                const guests = item.guests
+                    .filter((g: any) => typeof g === 'string')
+                    .map((g: string) => g.substring(0, 50).replace(/</g, "&lt;"));
+                
+                seating.push({
+                    id: item.id,
+                    name: item.name.substring(0, 50),
+                    seats: Math.min(Math.max(item.seats, 1), 50),
+                    guests
+                });
+            }
+        }
+    }
+
+    let budget: Budget = { limit: 0 };
+    if (data.budget && typeof data.budget.limit === 'number') {
+        budget.limit = Math.max(0, data.budget.limit);
+    }
+
+    const agentNotes: AgentNote[] = [];
+    if (Array.isArray(data.agentNotes)) {
+        if (data.agentNotes.length > 20) return { valid: false }; // Max 20 notes
+        for (const item of data.agentNotes) {
+            if (
+                typeof item.id === 'string' &&
+                typeof item.title === 'string' &&
+                (item.type === 'text' || item.type === 'table')
+            ) {
+                const note: AgentNote = {
+                    id: item.id,
+                    title: item.title.substring(0, 100).replace(/</g, "&lt;"),
+                    type: item.type
+                };
+
+                if (item.type === 'text' && typeof item.content === 'string') {
+                     note.content = item.content.substring(0, 5000).replace(/</g, "&lt;");
+                }
+
+                if (item.type === 'table' && Array.isArray(item.tableRows)) {
+                    // Limit table size (e.g., 20x10)
+                    const rows = item.tableRows.slice(0, 50);
+                    note.tableRows = rows.map((row: any) => {
+                        if (Array.isArray(row)) {
+                            return row.slice(0, 10).map((cell: any) => 
+                                typeof cell === 'string' ? cell.substring(0, 200).replace(/</g, "&lt;") : ""
+                            );
+                        }
+                        return [];
+                    });
+                }
+                agentNotes.push(note);
+            }
+        }
+    }
+
     return { 
         valid: true, 
-        cleaned: { todos, recipes, gifts } 
+        cleaned: { todos, recipes, gifts, decorations, seating, budget, agentNotes } 
     };
 };
 
-// --- Routes ---
-
-// Get all artifacts for the user
 router.get('/', async (req, res) => {
   // @ts-ignore
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
   try {
-    // Use namespaced key to prevent collisions
     const data = await redisClient.get(`santas_elf:artifacts:${userId}`);
     const artifacts = data ? JSON.parse(data) : INITIAL_ARTIFACTS;
+    
+    // Migration/Backfill for new fields
+    if (!artifacts.seating) artifacts.seating = [];
+    if (!artifacts.budget) artifacts.budget = { limit: 0 };
+    if (!artifacts.decorations) artifacts.decorations = []; // Ensure migration from prev step too
+    if (!artifacts.agentNotes) artifacts.agentNotes = [];
+
     res.json(artifacts);
   } catch (error) {
     console.error('Error fetching artifacts:', error);
@@ -122,7 +214,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Save/Update artifacts
 router.post('/', rateLimit, async (req, res) => {
   // @ts-ignore
   const userId = req.user?.id;
