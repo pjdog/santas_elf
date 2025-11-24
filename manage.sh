@@ -39,7 +39,7 @@ ensure_env() {
 }
 
 usage() {
-  echo "Usage: $0 {up|down|restart|clean|logs|fix-ports|test}" >&2
+  echo "Usage: $0 {up|down|restart|clean|logs|fix-ports|test|status}" >&2
   echo "  up         : Start the application"
   echo "  down       : Stop the application (removes orphans)"
   echo "  restart    : Restart the application"
@@ -47,6 +47,7 @@ usage() {
   echo "  logs       : Follow container logs"
   echo "  fix-ports  : Force kill processes hogging ports 3000 or 5000 (Use if 'up' fails)"
   echo "  test       : Run server and client test suites in Docker (non-interactive)"
+  echo "  status     : Show container status and log file locations"
   echo ""
   echo "Options for 'up':"
   echo "  --no-cache : Rebuild without cache"
@@ -74,6 +75,11 @@ case "$ACTION" in
     
     echo "Starting application..."
     (cd "$SCRIPT_DIR" && ${COMPOSE} up -d --build --remove-orphans)
+    cat <<'EOF'
+      /\\_/\\
+     ( o.o )  Santa's Elf is awake!
+      > ^ <
+EOF
     echo "✅ Application started at http://localhost:8080"
     ;;
   down)
@@ -86,6 +92,11 @@ case "$ACTION" in
     (cd "$SCRIPT_DIR" && ${COMPOSE} down --remove-orphans)
     ensure_env
     (cd "$SCRIPT_DIR" && ${COMPOSE} up -d --build --remove-orphans)
+    cat <<'EOF'
+      /\\_/\\
+     ( o.o )  Santa's Elf is awake!
+      > ^ <
+EOF
     echo "✅ Application restarted."
     ;;
   clean)
@@ -115,6 +126,15 @@ case "$ACTION" in
     echo "Running test suites in Docker..."
     (cd "$SCRIPT_DIR" && docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit)
     echo "✅ Tests completed."
+    ;;
+  status)
+    echo "Container status:"
+    ${COMPOSE} ps
+    echo ""
+    echo "Log files (if present):"
+    echo "  server: $SCRIPT_DIR/server.log"
+    echo "  client: $SCRIPT_DIR/client.log"
+    echo "  nginx : $SCRIPT_DIR/nginx/error.log"
     ;;
   *)
     usage
