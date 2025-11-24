@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ChatInput from '../components/ChatInput';
-import ArtifactPanel from '../components/ArtifactPanel';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -29,7 +28,6 @@ const HomePage: React.FC = () => {
   const { applyChatInsights } = useAssistantContext();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(false);
   const theme = useTheme();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -128,9 +126,7 @@ const HomePage: React.FC = () => {
         </IconButton>
       </Box>
 
-      <ArtifactPanel open={panelOpen} onToggle={() => setPanelOpen(!panelOpen)} />
-
-      <Box sx={{ flexGrow: 1, overflowY: 'auto', px: 2, py: 4, mr: panelOpen ? '350px' : 0, transition: 'margin-right 0.3s' }}>
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', px: 2, py: 4 }}>
         {messages.map((msg, index) => (
             <Fade in={true} timeout={500} key={index}>
             <Box

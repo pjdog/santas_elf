@@ -24,6 +24,11 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import HomeIcon from '@mui/icons-material/Home';
+import BrushIcon from '@mui/icons-material/Brush';
+import LogoutIcon from '@mui/icons-material/Logout';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
+import { Link as RouterLink } from 'react-router-dom';
 
 interface ArtifactPanelProps {
   open: boolean;
@@ -175,6 +180,31 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ open, onToggle }) => {
             <IconButton onClick={onToggle}>
                 <ChevronRightIcon />
             </IconButton>
+        </Box>
+
+        {/* Navigation shortcuts */}
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: '#fff' }}>
+          <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 0.5 }}>
+            Navigate
+          </Typography>
+          <Button startIcon={<HomeIcon />} component={RouterLink} to="/" color="primary" variant="outlined">
+            Chat
+          </Button>
+          <Button startIcon={<RestaurantIcon />} component={RouterLink} to="/recipes" color="primary" variant="outlined">
+            Recipes
+          </Button>
+          <Button startIcon={<CardGiftcardIcon />} component={RouterLink} to="/gifts" color="primary" variant="outlined">
+            Gifts
+          </Button>
+          <Button startIcon={<BrushIcon />} component={RouterLink} to="/decorations" color="primary" variant="outlined">
+            Decor
+          </Button>
+          <Button startIcon={<ManageAccountsIcon />} component={RouterLink} to="/llm-setup" color="secondary" variant="outlined">
+            LLM Setup
+          </Button>
+          <Button startIcon={<LogoutIcon />} href="/auth/logout" color="inherit">
+            Exit
+          </Button>
         </Box>
 
         <Tabs 

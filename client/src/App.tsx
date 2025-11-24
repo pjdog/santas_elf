@@ -10,7 +10,6 @@ import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 
@@ -22,6 +21,7 @@ import DecorationsPage from './pages/DecorationsPage';
 import HomePage from './pages/HomePage';
 import SetupPage from './pages/SetupPage';
 import Login from './components/Login';
+import ArtifactPanel from './components/ArtifactPanel';
 
 // Component to handle query params for errors
 const AuthErrorAlert = () => {
@@ -48,6 +48,7 @@ const AuthErrorAlert = () => {
 
 const App: React.FC = () => {
   const userContext = useContext(UserContext);
+  const [panelOpen, setPanelOpen] = React.useState(false);
 
   if (userContext?.loading) {
     return (
@@ -94,30 +95,8 @@ const App: React.FC = () => {
             )}
             </Container>
 
-            {/* Floating "Dynamic Island" Navigation Bar */}
             {userContext?.user && (
-                <Paper 
-                    sx={{ 
-                        position: 'fixed', 
-                        bottom: 30, 
-                        left: '50%', 
-                        transform: 'translateX(-50%)', 
-                        width: '90%', 
-                        maxWidth: 500, 
-                        display: 'flex', 
-                        justifyContent: 'space-around', 
-                        p: 1, 
-                        borderRadius: 50,
-                        zIndex: 1000
-                    }} 
-                    elevation={4}
-                >
-                    <Button color="inherit" component={RouterLink} to="/">Chat</Button>
-                    <Button color="inherit" component={RouterLink} to="/recipes">Recipes</Button>
-                    <Button color="inherit" component={RouterLink} to="/gifts">Gifts</Button>
-                    <Button color="inherit" component={RouterLink} to="/decorations">Decor</Button>
-                    <Button color="inherit" href="/auth/logout">Exit</Button>
-                </Paper>
+              <ArtifactPanel open={panelOpen} onToggle={() => setPanelOpen(!panelOpen)} />
             )}
         </Box>
       </Router>
