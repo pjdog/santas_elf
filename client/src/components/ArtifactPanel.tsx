@@ -35,10 +35,12 @@ import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import NoteAltIcon from '@mui/icons-material/NoteAlt';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SettingsIcon from '@mui/icons-material/Settings';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import { Link as RouterLink } from 'react-router-dom';
 import { ArtifactContext } from '../context/ArtifactContext';
 import NotesTab from './NotesTab';
 import PreferencesTab from './PreferencesTab';
+import PlanTab from './PlanTab';
 
 const ArtifactPanel: React.FC = () => {
   const context = useContext(ArtifactContext);
@@ -95,7 +97,8 @@ const ArtifactPanel: React.FC = () => {
       { id: 'food', label: 'Food', icon: <RestaurantIcon />, feature: 'recipes', contentIndex: 2 }, // mapped 'recipes' feature to Food tab
       { id: 'decor', label: 'Decor', icon: <BrushIcon />, feature: 'decorations', contentIndex: 3 },
       { id: 'notes', label: 'Notes', icon: <NoteAltIcon />, contentIndex: 4 },
-      { id: 'prefs', label: 'Prefs', icon: <SettingsIcon />, contentIndex: 5 },
+      { id: 'plan', label: 'Plan', icon: <ListAltIcon />, contentIndex: 5 },
+      { id: 'prefs', label: 'Prefs', icon: <SettingsIcon />, contentIndex: 6 },
   ];
 
   const visibleTabs = allTabs.filter(t => !t.feature || (artifacts.features || []).includes(t.feature));
@@ -410,8 +413,13 @@ const ArtifactPanel: React.FC = () => {
                 <NotesTab />
             )}
 
-            {/* Preferences Tab (Index 5) */}
+            {/* Plan Tab (Index 5) */}
             {currentContentIndex === 5 && (
+                <PlanTab />
+            )}
+
+            {/* Preferences Tab (Index 6) */}
+            {currentContentIndex === 6 && (
                 <PreferencesTab />
             )}
 
