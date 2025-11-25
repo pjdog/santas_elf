@@ -338,6 +338,23 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
         const agentResult = await runAgentExecutor(userId, scenario, prompt, contextInfo + `\n\nHISTORY:\n${history}`);
         
         let replyMessage = agentResult.finalAnswer;
+        let replyType = 'chat';
+        let replyData = agentResult.updatedArtifacts;
+
+        // Map tool usage to UI types for widgets
+        if (agentResult.lastToolUsed === 'find_recipe') {
+            replyType = 'recipe';
+            replyData = agentResult.lastToolResult;
+        } else if (agentResult.lastToolUsed === 'find_gift') {
+            replyType = 'gift';
+            replyData = agentResult.lastToolResult;
+        } else if (agentResult.lastToolUsed === 'get_decoration_suggestions') {
+            replyType = 'decoration';
+            replyData = agentResult.lastToolResult;
+        } else if (agentResult.lastToolUsed === 'commerce_checkout') {
+            replyType = 'commerce';
+            replyData = agentResult.lastToolResult;
+        }
 
         // Inject fun fact and todos if we just established the foundation
         if (funFact) {
@@ -356,8 +373,8 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
             const aiMsg = { 
                 sender: 'ai', 
                 text: replyMessage, 
-                type: 'chat', 
-                data: agentResult.updatedArtifacts, // Can carry full state payload if needed
+                type: replyType, 
+                data: replyData, // Can carry full state payload if needed
                 trace: agentResult.steps // Save reasoning trace!
             };
             await saveMessage(userId, scenario, userMsg);
@@ -365,9 +382,9 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
         }
 
         return res.json({
-            type: 'chat',
+            type: replyType,
             message: replyMessage,
-            data: agentResult.updatedArtifacts, // Send back updated state
+            data: replyData, // Send back updated state
             artifactsUpdated: agentResult.artifactsUpdated || artifactsUpdatedFlag,
             trace: agentResult.steps
         });

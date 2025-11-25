@@ -7,6 +7,8 @@ interface AgentResult {
     steps: string[];
     artifactsUpdated: boolean;
     updatedArtifacts?: SavedArtifacts;
+    lastToolUsed?: string;
+    lastToolResult?: any;
 }
 
 /**
@@ -61,6 +63,8 @@ export const runAgentExecutor = async (
     let finalAnswer = "";
     let artifactsUpdated = false;
     let lastArtifacts: SavedArtifacts | undefined;
+    let lastToolUsed: string | undefined;
+    let lastToolResult: any | undefined; // Capture data for UI
 
     // Initial System Prompt Construction
     const toolDesc = toolDefinitions.map(t => `- ${t.name}: ${t.description}`).join('\n');
@@ -161,6 +165,10 @@ export const runAgentExecutor = async (
                     // We pass context (userId, scenario) so tools like 'manage_planner' work
                     const result = await tools[parsed.action].function(parsed.action_input, { userId, scenario });
                     
+                    // Capture tool usage for UI hints
+                    lastToolUsed = parsed.action;
+                    lastToolResult = result;
+                    
                     // Standardize Output
                     let outputStr = "";
                     if (typeof result === 'string') {
@@ -207,6 +215,8 @@ export const runAgentExecutor = async (
         finalAnswer,
         steps: scratchpad,
         artifactsUpdated,
-        updatedArtifacts: lastArtifacts
+        updatedArtifacts: lastArtifacts,
+        lastToolUsed,
+        lastToolResult
     };
 };

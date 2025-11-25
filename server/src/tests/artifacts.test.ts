@@ -51,7 +51,8 @@ describe('Artifact Routes', () => {
             dietary: { allergies: [], dislikes: [], diets: [] },
             gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
             decorations: { room: "", style: "", preferredColors: [] }
-        }
+        },
+        plan: null
     });
   });
 
@@ -103,7 +104,8 @@ describe('Artifact Routes', () => {
             dietary: { allergies: [], dislikes: [], diets: [] },
             gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
             decorations: { room: "", style: "", preferredColors: [] }
-        }
+        },
+        plan: null
     };
 
     expect(redisClient.set).toHaveBeenCalledWith(
