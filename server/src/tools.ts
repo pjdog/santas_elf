@@ -4,6 +4,7 @@ import { generateContent } from './utils/llm';
 import { SavedArtifacts, INITIAL_ARTIFACTS } from './routes/artifacts';
 import { sanitizeScenario } from './utils/scenario';
 import { persistArtifactsToDisk } from './utils/artifactFs';
+import { fetchProductDeals } from './utils/social';
 
 /**
  * Helper to fetch current artifacts for a user
@@ -379,6 +380,17 @@ tools['commerce_checkout'] = {
     description: "Suggests safe checkout entry points (Amazon search, PayPal invoice guidance).",
     function: async (query: string) => {
         return buildCommerceSuggestions(query);
+    }
+};
+
+tools['find_product_insights'] = {
+    description: "Searches for shopping deals, price discussions, and coupons for a product. Returns recent posts from deal communities (like Reddit deals/coupons). Input: Product name.",
+    function: async (query: string) => {
+        const deals = await fetchProductDeals(query);
+        return {
+            message: `Found ${deals.length} discussions about deals for "${query}".`,
+            deals
+        };
     }
 };
 

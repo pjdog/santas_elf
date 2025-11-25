@@ -53,3 +53,48 @@ export const fetchSocialSuggestions = async (query: string): Promise<SocialPost[
   const results = await Promise.all([reddit, hackerNews]);
   return results.flat().filter((p) => p.title);
 };
+
+/**
+ * Represents a product deal found online.
+ */
+export interface ProductDeal {
+    /** The title of the deal post. */
+    title: string;
+    /** The price if extractable (otherwise 0). */
+    price: number;
+    /** The URL to the deal. */
+    url: string;
+    /** The source subreddit or site. */
+    source: string;
+}
+
+/**
+ * Fetches recent product deals from shopping-related subreddits.
+ * 
+ * @param query - The product name to search for.
+ * @returns List of potential deals.
+ */
+export const fetchProductDeals = async (query: string): Promise<ProductDeal[]> => {
+    const q = encodeURIComponent(query);
+    // Search specific deal subreddits
+    const url = `https://www.reddit.com/r/deals+coupons+buildapcsales+gamedeals/search.json?q=${q}&restrict_sr=on&sort=new&limit=5`;
+    
+    try {
+        const res = await axios.get(url, { timeout: TIMEOUT });
+        return (res.data?.data?.children || []).map((c: any) => {
+            const title = c?.data?.title || '';
+            // Try to extract price from title like "$199" or "199$"
+            const priceMatch = title.match(/\$(\d+(?:\.\d+)?)/);
+            const price = priceMatch ? parseFloat(priceMatch[1]) : 0;
+            
+            return {
+                title,
+                price,
+                url: c?.data?.url || '',
+                source: `reddit/${c?.data?.subreddit}`
+            };
+        });
+    } catch (e) {
+        return [];
+    }
+};

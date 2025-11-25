@@ -351,7 +351,7 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
         } else if (agentResult.lastToolUsed === 'get_decoration_suggestions') {
             replyType = 'decoration';
             replyData = agentResult.lastToolResult;
-        } else if (agentResult.lastToolUsed === 'commerce_checkout') {
+        } else if (agentResult.lastToolUsed === 'commerce_checkout' || agentResult.lastToolUsed === 'find_product_insights') {
             replyType = 'commerce';
             replyData = agentResult.lastToolResult;
         }
