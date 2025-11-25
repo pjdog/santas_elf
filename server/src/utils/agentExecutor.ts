@@ -10,6 +10,37 @@ interface AgentResult {
 }
 
 /**
+ * Critic Helper: Validates the agent's proposed answer against the user's request.
+ */
+const runCritic = async (prompt: string, contextInfo: string, proposedAnswer: string): Promise<{ valid: boolean; reason?: string }> => {
+    const criticPrompt = `
+    You are a critical reviewer. 
+    User Request: "${prompt}"
+    Context/Preferences: ${contextInfo}
+    
+    Agent's Proposed Answer: "${proposedAnswer}"
+    
+    Task: 
+    1. Does the answer directly address the user's request?
+    2. Does it violate any known preferences (allergies, dislikes, budget)?
+    3. Is it helpful?
+    
+    If it is good, return JSON: { "valid": true }
+    If it fails, return JSON: { "valid": false, "reason": "Explain exactly what is wrong so the agent can fix it." }
+    Return ONLY JSON.
+    `;
+
+    try {
+        const raw = await generateContent(criticPrompt);
+        const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleaned);
+    } catch (e) {
+        console.error("Critic failed", e);
+        return { valid: true }; // Fail open if critic errors
+    }
+};
+
+/**
  * The Core ReAct (Reason-Act-Observe) Loop.
  * 
  * @param userId The user ID
@@ -69,6 +100,7 @@ export const runAgentExecutor = async (
     2. If you need data (recipes, gifts, current plan status), use a tool.
     3. "action_input" must be a string. If the tool needs JSON, stringify it.
     4. Do not hallucinate tool outputs. Wait for the "Observation".
+    5. Your final answer will be reviewed by a Critic. Ensure it meets all user preferences.
     `;
 
     console.log(`[AgentExecutor] Starting loop for: "${prompt}"`);
@@ -101,10 +133,22 @@ export const runAgentExecutor = async (
             }
 
             if (parsed.final_answer) {
-                finalAnswer = parsed.final_answer;
-                scratchpad.push(`Thought: ${parsed.thought}`);
-                scratchpad.push(`Final Answer: ${parsed.final_answer}`);
-                break;
+                // Run Critic before accepting
+                console.log(`[AgentExecutor] Proposing answer. Running critic...`);
+                const critique = await runCritic(prompt, contextInfo, parsed.final_answer);
+                
+                if (critique.valid) {
+                    finalAnswer = parsed.final_answer;
+                    scratchpad.push(`Thought: ${parsed.thought}`);
+                    scratchpad.push(`Final Answer: ${parsed.final_answer}`);
+                    break;
+                } else {
+                    console.log(`[AgentExecutor] Critic rejected: ${critique.reason}`);
+                    scratchpad.push(`Thought: ${parsed.thought}`);
+                    scratchpad.push(`Critic: Your answer was rejected. Reason: ${critique.reason}. Please fix this and try again.`);
+                    // Don't break; loop continues to let agent fix it
+                    continue;
+                }
             }
 
             if (parsed.action && tools[parsed.action]) {
