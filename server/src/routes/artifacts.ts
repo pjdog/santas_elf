@@ -320,6 +320,16 @@ router.get('/', async (req, res) => {
     if (!artifacts.features) artifacts.features = ['recipes', 'gifts', 'decorations'];
     if (!artifacts.preferences) artifacts.preferences = JSON.parse(JSON.stringify(INITIAL_ARTIFACTS.preferences));
 
+    // Sanitize todos on load to prevent client crashes (Error #31)
+    if (Array.isArray(artifacts.todos)) {
+        artifacts.todos = artifacts.todos.map((t: any) => ({
+            ...t,
+            text: typeof t.text === 'string' ? t.text : (t.text ? JSON.stringify(t.text) : 'Untitled Task')
+        }));
+    } else {
+        artifacts.todos = [];
+    }
+
     res.json(artifacts);
   } catch (error) {
     console.error('Error fetching artifacts:', error);

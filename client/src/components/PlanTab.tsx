@@ -98,7 +98,7 @@ const PlanTab: React.FC = () => {
                                             fontWeight: 500
                                         }}
                                     >
-                                        {step.description}
+                                        {typeof step.description === 'string' ? step.description : JSON.stringify(step.description)}
                                     </Typography>
                                     {getStatusChip(step.status)}
                                 </Box>

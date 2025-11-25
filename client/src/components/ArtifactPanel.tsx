@@ -294,7 +294,7 @@ const ArtifactPanel: React.FC = () => {
                                     />
                                 </ListItemIcon>
                                 <ListItemText 
-                                    primary={todo.text} 
+                                    primary={typeof todo.text === 'string' ? todo.text : JSON.stringify(todo.text)} 
                                     sx={{ textDecoration: todo.completed ? 'line-through' : 'none', opacity: todo.completed ? 0.6 : 1 }}
                                 />
                             </ListItem>
