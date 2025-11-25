@@ -124,6 +124,23 @@ describe('Agent Routes', () => {
     expect(tools.find_gift.function).not.toHaveBeenCalled();
   });
 
+  it('POST /api/agent/chat handles scenario switch request', async () => {
+    (generateContent as jest.Mock).mockResolvedValueOnce(JSON.stringify({
+      intent: "new_scenario",
+      toolQuery: "birthday-party",
+      reply: "Okay, switching to your birthday party plan."
+    }));
+
+    const res = await request(app)
+      .post('/api/agent/chat')
+      .send({ prompt: "Let's plan a birthday party instead" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.type).toBe('switch_scenario');
+    expect(res.body.message).toBe('Okay, switching to your birthday party plan.');
+    expect(res.body.data).toBe('birthday-party');
+  });
+
   it('POST /api/agent/chat handles LLM failure gracefully', async () => {
     (generateContent as jest.Mock).mockRejectedValueOnce(new Error("LLM Error"));
 

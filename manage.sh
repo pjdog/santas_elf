@@ -39,7 +39,7 @@ ensure_env() {
 }
 
 usage() {
-  echo "Usage: $0 {up|down|restart|clean|logs|fix-ports|test|status}" >&2
+  echo "Usage: $0 {up|down|restart|clean|logs|fix-ports|test|status|install|agent}" >&2
   echo "  up         : Start the application"
   echo "  down       : Stop the application (removes orphans)"
   echo "  restart    : Restart the application"
@@ -48,6 +48,8 @@ usage() {
   echo "  fix-ports  : Force kill processes hogging ports 3000 or 5000 (Use if 'up' fails)"
   echo "  test       : Run server and client test suites in Docker (non-interactive)"
   echo "  status     : Show container status and log file locations"
+  echo "  install    : Check local prerequisites and suggest install commands"
+  echo "  agent      : Run the agent CLI locally (uses CLI_SECRET and AGENT_BASE_URL)"
   echo ""
   echo "Options for 'up':"
   echo "  --no-cache : Rebuild without cache"
@@ -76,11 +78,48 @@ case "$ACTION" in
     echo "Starting application..."
     (cd "$SCRIPT_DIR" && ${COMPOSE} up -d --build --remove-orphans)
     cat <<'EOF'
-      /\\_/\\
-     ( o.o )  Santa's Elf is awake!
-      > ^ <
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⠤⠤⠤⠤⠤⢤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢺⡄⠀⠀⠀⠀⠀⠀⠈⠉⠒⠦⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢳⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢢⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣳⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣆⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⡃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣜⣄⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⣀⣀⡀⠀⠘⢾⣆⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⣊⠁⣀⣀⣀⣀⣀⠤⠤⠔⠒⠒⠚⠉⠉⠉⠉⠉⠉⠉⠁⠀⠀⠉⠓⠦⡀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⡠⠒⠉⠁⠀⠈⠉⠉⠉⠁⠀⣀⣀⣀⡤⠤⠤⠴⠒⠒⠲⠤⠤⢤⣀⡀⠀⠀⠀⠀⣈⡆⠀⠀
+⠀⠀⠀⠀⠀⠀⣹⢤⢤⣀⣀⣀⣠⣤⠴⢲⣏⣽⠧⣄⠀⠀⠀⠀⠀⠀⢰⡶⡦⢤⡀⠹⡟⢖⠒⠒⢻⡀⠀⠀
+⠀⠀⠀⠀⠀⢸⡇⢼⠁⠀⡽⣿⣼⠃⠀⠹⠿⠷⠟⠛⠃⠀⠀⠀⠀⠀⠈⠉⠛⠚⠾⠆⣷⠸⡅⠙⢦⡇⠀⠀
+⠀⠀⠀⠀⠀⠸⡇⢈⢤⡞⡝⣫⢻⠀⠀⠀⠀⢰⣶⣤⣄⠀⠀⠀⠀⠀⠀⣴⣶⣂⠀⠀⢸⠀⢻⡄⣾⡇⠀⠀
+⠀⠀⠀⠀⠀⠀⠹⣞⣘⣾⣕⡿⡸⠀⠀⠀⠀⠺⠿⣿⠗⠀⢀⣠⠤⢄⡘⢿⣿⠟⠀⠀⠈⡆⢸⣟⡿⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⣾⣟⡾⡞⠀⡇⠀⠀⠀⠀⠀⠀⠉⠀⣠⠏⠀⠀⠀⠑⣟⠉⠀⠀⠀⠀⢱⠀⣯⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⢀⣠⣿⣼⣘⡁⠀⢧⡀⠀⠀⠀⠀⠀⢀⣠⡿⣖⠦⠤⢖⣲⢯⣀⠀⠀⠀⠀⢸⠀⢸⡄⠀⠀⠀
+⠀⠀⠀⣠⠖⠋⠁⠀⠀⠀⠉⠓⢤⠙⠒⢒⣒⣒⡿⣝⡯⠋⠁⣀⣀⡀⠉⠻⣯⢍⠑⠒⢴⡚⠒⢸⠃⠀⠀⠀
+⠀⠀⢰⡇⠀⠀⠀⠀⠀⠀⠀⠀⠈⣷⠀⠈⠩⠓⠋⣁⡠⠴⣏⣁⣈⣩⠷⠦⣈⡚⠽⢖⠤⠤⣠⣿⡀⠀⠀⠀
+⠀⠀⠘⣷⡄⠀⠀⠀⠀⠀⠀⠀⣠⠏⢑⡖⠒⠒⣫⠏⠀⠀⠀⠸⡆⠀⠀⠀⠈⢉⠒⠒⠒⠒⠁⢸⠙⣆⠀⠀
+⠀⢀⣴⡿⠚⠦⠤⠤⠤⠤⢤⠞⠋⢠⠋⠀⣰⢲⠇⠀⠀⠀⠀⠀⢹⠀⠀⢀⠀⠀⠳⡀⠀⠀⠀⣠⡇⠘⣄⠀
+⣠⡟⡞⠀⠀⠀⠀⠀⠀⠀⣼⡃⢀⡟⠀⣰⠃⣽⡄⠀⠀⠀⠀⠀⠈⣆⠀⠀⠀⠀⠀⢣⠀⠀⠀⢻⢿⣯⣽⠽⠶⣄⠀⠀⠀
+⢽⡇⠇⠀⠐⠒⠒⠒⠒⠋⠁⣻⡎⠁⢠⠃⠀⢹⡇⠀⠀⠀⠀⠀⢠⠏⠀⠀⣇⠀⠀⢸⠀⠀⢴⡾⠀⢷⡉⢱⡀⠈⠳⣄⠀
+⢸⠀⡇⠀⠀⢤⣀⣀⣀⣀⠔⢹⡧⡄⠸⡄⠀⢸⡇⠀⠀⠀⠀⢀⡞⠀⠀⠀⣿⠀⠀⡎⠀⢰⣸⢧⠉⠙⣟⠊⢁⣴⠆⠈⣇
+⠘⣇⠹⣆⠀⣀⡈⠉⠉⢀⣠⡛⠀⠙⠲⣏⠀⠘⠃⠀⠀⠀⠀⡞⠀⠀⠀⢠⡏⠀⠀⡇⣄⣴⠋⢈⡷⠀⣿⠀⠀⣻⡤⢴⡏
+⠀⠘⠦⣈⣣⣌⣉⠒⠚⠉⣸⠁⠀⠀⠀⠘⢦⠀⠀⠀⠀⠀⢠⠃⠀⠀⠀⡞⠀⠀⠀⢁⡿⠁⠀⣼⡀⠀⠀⢀⣸⣏⠀⣠⠇
+⠀⠀⠀⠀⢉⡏⠉⠉⡹⠉⡇⠀⠀⠀⠀⠀⠀⠙⢦⠀⠀⠀⢸⠀⠀⠀⡸⠁⠀⠀⣺⠋⠀⠀⣴⠃⠙⠢⣄⣈⣿⠉⣿⡟⠀
+⠀⠀⠀⠀⡜⠀⠀⢠⠃⢰⠁⠀⠀⠀⠀⠀⠀⠀⠈⠣⣄⡀⠈⠀⢀⠜⠁⢀⡤⠴⠋⠀⢀⣜⠁⠀⠀⠀⠀⠻⠼⠿⠉⠀⠀
+⠀⠀⠀⢀⡇⠀⢀⠏⠀⠈⡣⣄⣀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠢⡀⢋⡤⠔⠊⢀⣀⡤⠖⠁⢹⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⣾⠀⠀⡜⠀⢠⡏⠀⠀⠉⠉⠉⠒⠒⠒⠤⠤⠤⡤⠤⠽⠟⠒⠒⠉⠉⠀⠀⢀⡤⠊⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⡟⠀⣰⠁⠀⢨⠇⠦⠤⣄⣀⣀⠀⠀⠀⠀⠀⢀⣷⠀⠀⠀⠀⠀⣀⣀⠤⠚⠙⣇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⡇⢀⡏⠀⠀⡎⠀⠀⠀⠀⠀⠉⠉⠑⠒⠒⠚⠉⡇⠐⠒⠒⠉⠉⠉⠀⠀⠀⠀⠙⠦⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⢠⡇⠸⠀⢀⡼⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠒⢤⡀⠀⠀⠀⠀⠀⠀
+⠀⠀⢸⡇⠁⣠⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣆⠀⠀⠀⠀⠀
+⠀⠀⢸⡇⣰⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⣇⠀⠀⠀⠀
+⠀⠀⢸⡇⢻⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣔⡋⠙⠒⠦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣽⠀⠀⠀⠀
+⠀⠀⠘⢧⣀⣷⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⢏⡼⠛⠒⠤⢄⣀⠉⠒⠢⠤⢄⣀⣀⣀⣀⣀⣀⣀⠤⢜⡿⠀⠀⠀⠀
+⠀⠀⠀⠀⠈⢿⣈⠙⠒⠦⠤⠤⠤⠤⠤⠤⠔⢊⡵⠋⠀⠀⠀⠀⠀⠈⠉⠒⠒⠢⠤⠤⠤⠤⠤⠤⠤⠤⠴⠚⠁⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠉⠙⠒⠒⠒⠒⠒⠒⠒⠒⠂⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 EOF
-    echo "✅ Application started at http://localhost:8080"
+    echo "✅ Application started: http://localhost:8080"
     ;;
   down)
     echo "Stopping application..."
@@ -93,11 +132,48 @@ EOF
     ensure_env
     (cd "$SCRIPT_DIR" && ${COMPOSE} up -d --build --remove-orphans)
     cat <<'EOF'
-      /\\_/\\
-     ( o.o )  Santa's Elf is awake!
-      > ^ <
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⠤⠤⠤⠤⠤⢤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢺⡄⠀⠀⠀⠀⠀⠀⠈⠉⠒⠦⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢳⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢢⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣳⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣆⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⡃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣜⣄⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⣀⣀⡀⠀⠘⢾⣆⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⣊⠁⣀⣀⣀⣀⣀⠤⠤⠔⠒⠒⠚⠉⠉⠉⠉⠉⠉⠁⠀⠀⠉⠓⠦⡀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⡠⠒⠉⠁⠀⠈⠉⠉⠉⠁⠀⣀⣀⣀⡤⠤⠤⠴⠒⠒⠲⠤⠤⢤⣀⡀⠀⠀⠀⠀⣈⡆⠀⠀
+⠀⠀⠀⠀⠀⠀⣹⢤⢤⣀⣀⣀⣠⣤⠴⢲⣏⣽⠧⣄⠀⠀⠀⠀⠀⠀⢰⡶⡦⢤⡀⠹⡟⢖⠒⠒⢻⡀⠀⠀
+⠀⠀⠀⠀⠀⢸⡇⢼⠁⠀⡽⣿⣼⠃⠀⠹⠿⠷⠟⠛⠃⠀⠀⠀⠀⠀⠈⠉⠛⠚⠾⠆⣷⠸⡅⠙⢦⡇⠀⠀
+⠀⠀⠀⠀⠀⠸⡇⢈⢤⡞⡝⣫⢻⠀⠀⠀⠀⢰⣶⣤⣄⠀⠀⠀⠀⠀⠀⣴⣶⣂⠀⠀⢸⠀⢻⡄⣾⡇⠀⠀
+⠀⠀⠀⠀⠀⠀⠹⣞⣘⣾⣕⡿⡸⠀⠀⠀⠀⠺⠿⣿⠗⠀⢀⣠⠤⢄⡘⢿⣿⠟⠀⠀⠈⡆⢸⣟⡿⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⣾⣟⡾⡞⠀⡇⠀⠀⠀⠀⠀⠀⠉⠀⣠⠏⠀⠀⠀⠑⣟⠉⠀⠀⠀⠀⢱⠀⣯⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⢀⣠⣿⣼⣘⡁⠀⢧⡀⠀⠀⠀⠀⠀⢀⣠⡿⣖⠦⠤⢖⣲⢯⣀⠀⠀⠀⠀⢸⠀⢸⡄⠀⠀⠀
+⠀⠀⠀⣠⠖⠋⠁⠀⠀⠀⠉⠓⢤⠙⠒⢒⣒⣒⡿⣝⡯⠋⠁⣀⣀⡀⠉⠻⣯⢍⠑⠒⢴⡚⠒⢸⠃⠀⠀⠀
+⠀⠀⢰⡇⠀⠀⠀⠀⠀⠀⠀⠀⠈⣷⠀⠈⠩⠓⠋⣁⡠⠴⣏⣁⣈⣩⠷⠦⣈⡚⠽⢖⠤⠤⣠⣿⡀⠀⠀⠀
+⠀⠀⠘⣷⡄⠀⠀⠀⠀⠀⠀⠀⣠⠏⢑⡖⠒⠒⣫⠏⠀⠀⠀⠸⡆⠀⠀⠀⠈⢉⠒⠒⠒⠒⠁⢸⠙⣆⠀⠀
+⠀⢀⣴⡿⠚⠦⠤⠤⠤⠤⢤⠞⠋⢠⠋⠀⣰⢲⠇⠀⠀⠀⠀⠀⢹⠀⠀⢀⠀⠀⠳⡀⠀⠀⠀⣠⡇⠘⣄⠀
+⣠⡟⡞⠀⠀⠀⠀⠀⠀⠀⣼⡃⢀⡟⠀⣰⠃⣽⡄⠀⠀⠀⠀⠀⠈⣆⠀⠀⠀⠀⠀⢣⠀⠀⠀⢻⢿⣯⣽⠽⠶⣄⠀⠀⠀
+⢽⡇⠇⠀⠐⠒⠒⠒⠒⠋⠁⣻⡎⠁⢠⠃⠀⢹⡇⠀⠀⠀⠀⠀⢠⠏⠀⠀⣇⠀⠀⢸⠀⠀⢴⡾⠀⢷⡉⢱⡀⠈⠳⣄⠀
+⢸⠀⡇⠀⠀⢤⣀⣀⣀⣀⠔⢹⡧⡄⠸⡄⠀⢸⡇⠀⠀⠀⠀⢀⡞⠀⠀⠀⣿⠀⠀⡎⠀⢰⣸⢧⠉⠙⣟⠊⢁⣴⠆⠈⣇
+⠘⣇⠹⣆⠀⣀⡈⠉⠉⢀⣠⡛⠀⠙⠲⣏⠀⠘⠃⠀⠀⠀⠀⡞⠀⠀⠀⢠⡏⠀⠀⡇⣄⣴⠋⢈⡷⠀⣿⠀⠀⣻⡤⢴⡏
+⠀⠘⠦⣈⣣⣌⣉⠒⠚⠉⣸⠁⠀⠀⠀⠘⢦⠀⠀⠀⠀⠀⢠⠃⠀⠀⠀⡞⠀⠀⠀⢁⡿⠁⠀⣼⡀⠀⠀⢀⣸⣏⠀⣠⠇
+⠀⠀⠀⠀⢉⡏⠉⠉⡹⠉⡇⠀⠀⠀⠀⠀⠀⠙⢦⠀⠀⠀⢸⠀⠀⠀⡸⠁⠀⠀⣺⠋⠀⠀⣴⠃⠙⠢⣄⣈⣿⠉⣿⡟⠀
+⠀⠀⠀⠀⡜⠀⠀⢠⠃⢰⠁⠀⠀⠀⠀⠀⠀⠀⠈⠣⣄⡀⠈⠀⢀⠜⠁⢀⡤⠴⠋⠀⢀⣜⠁⠀⠀⠀⠀⠻⠼⠿⠉⠀⠀
+⠀⠀⠀⢀⡇⠀⢀⠏⠀⠈⡣⣄⣀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠢⡀⢋⡤⠔⠊⢀⣀⡤⠖⠁⢹⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⣾⠀⠀⡜⠀⢠⡏⠀⠀⠉⠉⠉⠒⠒⠒⠤⠤⠤⡤⠤⠽⠟⠒⠒⠉⠉⠀⠀⢀⡤⠊⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⡟⠀⣰⠁⠀⢨⠇⠦⠤⣄⣀⣀⠀⠀⠀⠀⠀⢀⣷⠀⠀⠀⠀⠀⣀⣀⠤⠚⠙⣇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⡇⢀⡏⠀⠀⡎⠀⠀⠀⠀⠀⠉⠉⠑⠒⠒⠚⠉⡇⠐⠒⠒⠉⠉⠉⠀⠀⠀⠀⠙⠦⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⢠⡇⠸⠀⢀⡼⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠒⢤⡀⠀⠀⠀⠀⠀⠀
+⠀⠀⢸⡇⠁⣠⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣆⠀⠀⠀⠀⠀
+⠀⠀⢸⡇⣰⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⣇⠀⠀⠀⠀
+⠀⠀⢸⡇⢻⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣔⡋⠙⠒⠦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣽⠀⠀⠀⠀
+⠀⠀⠘⢧⣀⣷⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⢏⡼⠛⠒⠤⢄⣀⠉⠒⠢⠤⢄⣀⣀⣀⣀⣀⣀⣀⠤⢜⡿⠀⠀⠀⠀
+⠀⠀⠀⠀⠈⢿⣈⠙⠒⠦⠤⠤⠤⠤⠤⠤⠔⢊⡵⠋⠀⠀⠀⠀⠀⠈⠉⠒⠒⠢⠤⠤⠤⠤⠤⠤⠤⠤⠴⠚⠁⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠉⠙⠒⠒⠒⠒⠒⠒⠒⠒⠂⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 EOF
-    echo "✅ Application restarted."
+    echo "✅ Application restarted: http://localhost:8080"
     ;;
   clean)
     echo "Cleaning application state..."
@@ -124,8 +200,52 @@ EOF
   test)
     ensure_env
     echo "Running test suites in Docker..."
-    (cd "$SCRIPT_DIR" && docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit)
+    (cd "$SCRIPT_DIR" && ${COMPOSE} -f docker-compose.test.yml up --build --abort-on-container-exit)
     echo "✅ Tests completed."
+    ;;
+  install)
+    echo "Checking local prerequisites..."
+    # Docker
+    if command -v docker >/dev/null 2>&1; then
+        echo "✅ docker found: $(docker --version | head -n1)"
+    else
+        echo "❌ docker not found. Install Docker Engine: https://docs.docker.com/get-docker/"
+    fi
+    # Compose
+    if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+        echo "✅ docker compose plugin found: $(docker compose version | head -n1)"
+    elif command -v docker-compose >/dev/null 2>&1; then
+        echo "⚠️  legacy docker-compose found: $(docker-compose --version). Consider upgrading to docker compose plugin."
+    else
+        echo "❌ docker compose not found. Install: https://docs.docker.com/compose/install/"
+    fi
+    # Node/npm
+    if command -v node >/dev/null 2>&1; then
+        echo "✅ node found: $(node -v)"
+    else
+        echo "⚠️  node not found. For local builds/tests install Node 18+ (e.g., https://nodejs.org/en/download)"
+    fi
+    if command -v npm >/dev/null 2>&1; then
+        echo "✅ npm found: $(npm -v)"
+    else
+        echo "⚠️  npm not found. It ships with Node; install Node 18+."
+    fi
+    # Optional: npx for gemini alias
+    if command -v npx >/dev/null 2>&1; then
+        echo "✅ npx available."
+    else
+        echo "⚠️  npx not found; install Node/npm to use Gemini CLI alias."
+    fi
+    echo "Check complete. Install missing dependencies above, then run './manage.sh up'."
+    ;;
+  agent)
+    echo "Starting local agent CLI..."
+    if [[ ! -f "$SCRIPT_DIR/server/.env" ]]; then
+      echo "No server/.env found. Copying template..."
+      cp "$SCRIPT_DIR/server/.env.template" "$SCRIPT_DIR/server/.env"
+      echo "Update server/.env with your CLI_SECRET and run again if needed."
+    fi
+    (cd "$SCRIPT_DIR/server" && npm install && npm run agent:cli)
     ;;
   status)
     echo "Container status:"

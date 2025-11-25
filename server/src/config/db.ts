@@ -3,6 +3,10 @@ import { createClient, RedisClientType } from 'redis';
 const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379';
 const isTestEnv = process.env.NODE_ENV === 'test';
 
+/**
+ * Redis client instance.
+ * Configured with the connection URL from environment variables.
+ */
 const redisClient: RedisClientType = createClient({ url: redisUrl });
 
 redisClient.on('error', (err) => {
@@ -32,6 +36,10 @@ if (!isTestEnv && typeof clientWithOptionalConnect.connect === 'function') {
   });
 }
 
+/**
+ * Gracefully closes the Redis connection.
+ * Handles both V4 (isOpen/quit) and potentially older client versions.
+ */
 export const closeRedis = async () => {
   if (redisClient.isOpen) {
     await redisClient.quit();

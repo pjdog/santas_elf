@@ -9,7 +9,8 @@
     "start": "node dist/index.js",
     "test": "jest",
     "docs": "jsdoc -c jsdoc.json",
-    "seed": "npm run build && node dist/db/init.js"
+    "seed": "npm run build && node dist/db/init.js",
+    "agent:cli": "ts-node ./scripts/agent-cli.ts"
   },
   "keywords": [],
   "author": "",
@@ -27,7 +28,8 @@
     "passport-google-oauth20": "^2.0.0",
     "redis": "^5.10.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.18.3"
   },
   "devDependencies": {
     "@types/axios": "^0.14.4",

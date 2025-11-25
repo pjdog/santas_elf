@@ -77,7 +77,7 @@ describe('Artifact Routes', () => {
 
     expect(res.status).toBe(200);
     expect(redisClient.set).toHaveBeenCalledWith(
-        'santas_elf:artifacts:test-user', 
+        'santas_elf:artifacts:test-user:default', 
         JSON.stringify(newData)
     );
   });

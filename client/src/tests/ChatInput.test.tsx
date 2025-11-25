@@ -22,7 +22,7 @@ describe('ChatInput', () => {
     fireEvent.change(input, { target: { value: 'Cookies' } });
     fireEvent.click(screen.getByRole('button', { name: /send/i }));
 
-    expect(onSendMessage).toHaveBeenCalledWith('Cookies');
+    expect(onSendMessage).toHaveBeenCalledWith('Cookies', undefined);
     expect((input as HTMLInputElement).value).toBe('');
   });
 });

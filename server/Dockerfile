@@ -15,6 +15,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY tsconfig.json ./tsconfig.json
+COPY jest.config.js ./
 COPY src ./src
 
 # Default test command; can be overridden by docker-compose
@@ -30,8 +31,8 @@ COPY --from=builder /app/dist ./dist
 ENV NODE_ENV=production
 EXPOSE 5000
 
-# Create data directory and set permissions
-RUN mkdir -p /app/data && chown -R node:node /app/data
+# Create data and logs directories and set permissions
+RUN mkdir -p /app/data /app/logs && chown -R node:node /app/data /app/logs
 
 USER node
 CMD ["node", "dist/index.js"]

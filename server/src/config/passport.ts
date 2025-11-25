@@ -4,6 +4,9 @@ import { Strategy as CustomStrategy } from 'passport-custom';
 import redisClient from './db';
 import { getConfig } from '../utils/configManager';
 
+/**
+ * Interface representing a user stored in Redis/Session.
+ */
 interface StoredUser {
   id: string;
   displayName: string;
@@ -11,6 +14,11 @@ interface StoredUser {
   photo: string;
 }
 
+/**
+ * Initializes Passport strategies.
+ * Specifically sets up the Google OAuth 2.0 strategy using configuration from
+ * the config file or environment variables.
+ */
 export const initializePassport = () => {
     const config = getConfig();
     console.log('Loaded Config:', JSON.stringify(config));
@@ -20,8 +28,6 @@ export const initializePassport = () => {
     const clientSecret = config.google?.clientSecret || process.env.GOOGLE_CLIENT_SECRET || '';
     // Prioritize Env for Callback URL to ensure Docker/Nginx routing is respected over stale config
     const callbackURL = process.env.GOOGLE_CALLBACK_URL || config.google?.callbackUrl || '/auth/google/callback';
-
-    console.log('Loaded Config:', JSON.stringify(config));
 
     console.log('Passport Config - ClientID:', clientID ? 'Set' : 'Not Set');
     console.log('Passport Config - CallbackURL:', callbackURL);
@@ -67,13 +73,11 @@ export const initializePassport = () => {
 };
 
 passport.serializeUser((user, done) => {
-  // console.log('Serialize User:', (user as StoredUser).id);
   const typedUser = user as StoredUser;
   done(null, typedUser.id);
 });
 
 passport.deserializeUser(async (id: string, done) => {
-  // console.log('Deserialize User:', id);
   try {
     const userData = await redisClient.hGetAll(`user:${id}`);
     if (userData && userData.data) {

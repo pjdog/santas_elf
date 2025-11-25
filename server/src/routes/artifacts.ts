@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import redisClient from '../config/db';
 import { AgentNote } from '../models/types';
+import { sanitizeScenario } from '../utils/scenario';
 
 const router = Router();
 
@@ -196,9 +197,10 @@ router.get('/', async (req, res) => {
   // @ts-ignore
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+  const scenario = sanitizeScenario(req.query.scenario as string);
 
   try {
-    const data = await redisClient.get(`santas_elf:artifacts:${userId}`);
+    const data = await redisClient.get(`santas_elf:artifacts:${userId}:${scenario}`);
     const artifacts = data ? JSON.parse(data) : INITIAL_ARTIFACTS;
     
     // Migration/Backfill for new fields
@@ -218,6 +220,7 @@ router.post('/', rateLimit, async (req, res) => {
   // @ts-ignore
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+  const scenario = sanitizeScenario(req.query.scenario as string);
 
   const { valid, cleaned } = validateArtifacts(req.body);
 
@@ -226,7 +229,7 @@ router.post('/', rateLimit, async (req, res) => {
   }
 
   try {
-    await redisClient.set(`santas_elf:artifacts:${userId}`, JSON.stringify(cleaned));
+    await redisClient.set(`santas_elf:artifacts:${userId}:${scenario}`, JSON.stringify(cleaned));
     res.json(cleaned);
   } catch (error) {
     console.error('Error saving artifacts:', error);

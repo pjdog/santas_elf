@@ -79,6 +79,17 @@ To wipe the database and start fresh:
 ./manage.sh clean
 ```
 
+### API Documentation (JSDoc)
+Generate static docs (served at `/docs` inside the running container):
+
+```bash
+cd server
+npm install
+npm run docs
+```
+
+Then start the stack and visit [http://localhost:8080/docs](http://localhost:8080/docs).
+
 ---
 
 ## ⚙️ Configuration

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useContext } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -10,9 +10,7 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import Checkbox from '@mui/material/Checkbox';
-import Divider from '@mui/material/Divider';
 import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
 import Fab from '@mui/material/Fab';
 import Badge from '@mui/material/Badge';
 import Tooltip from '@mui/material/Tooltip';
@@ -24,68 +22,29 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import HomeIcon from '@mui/icons-material/Home';
 import BrushIcon from '@mui/icons-material/Brush';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
+import NoteAltIcon from '@mui/icons-material/NoteAlt';
 import { Link as RouterLink } from 'react-router-dom';
+import { ArtifactContext } from '../context/ArtifactContext';
+import NotesTab from './NotesTab';
 
-interface ArtifactPanelProps {
-  open: boolean;
-  onToggle: () => void;
-}
-
-interface TodoItem {
-  id: string;
-  text: string;
-  completed: boolean;
-}
-
-interface SavedArtifacts {
-  todos: TodoItem[];
-  recipes: any[];
-  gifts: any[];
-}
-
-const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ open, onToggle }) => {
-  const [tab, setTab] = useState(0);
-  const [artifacts, setArtifacts] = useState<SavedArtifacts>({ todos: [], recipes: [], gifts: [] });
+const ArtifactPanel: React.FC = () => {
+  const context = useContext(ArtifactContext);
   const [newTodo, setNewTodo] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchArtifacts();
-  }, []);
+  if (!context) return null;
 
-  const fetchArtifacts = async () => {
-    try {
-        const res = await fetch('/api/artifacts');
-        if (res.ok) {
-            const data = await res.json();
-            const safeData: SavedArtifacts = {
-                todos: Array.isArray(data?.todos) ? data.todos : [],
-                recipes: Array.isArray(data?.recipes) ? data.recipes : [],
-                gifts: Array.isArray(data?.gifts) ? data.gifts : [],
-            };
-            setArtifacts(safeData);
-        }
-    } catch (e) {
-        console.error("Failed to load artifacts", e);
-    }
-  };
-
-  const saveArtifacts = async (updated: SavedArtifacts) => {
-    setArtifacts(updated); // Optimistic update
-    try {
-        await fetch('/api/artifacts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updated)
-        });
-    } catch (e) {
-        console.error("Failed to save artifacts", e);
-    }
-  };
+  const { 
+      artifacts, 
+      saveArtifacts, 
+      panelOpen, 
+      setPanelOpen, 
+      activeTab, 
+      setActiveTab,
+      scenario 
+  } = context;
 
   const handleAddTodo = () => {
     if (!newTodo.trim()) return;
@@ -119,6 +78,12 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ open, onToggle }) => {
       saveArtifacts({ ...artifacts, recipes: updatedRecipes });
   };
 
+  const handleDeleteDecoration = (index: number) => {
+      const updatedDecor = [...artifacts.decorations];
+      updatedDecor.splice(index, 1);
+      saveArtifacts({ ...artifacts, decorations: updatedDecor });
+  };
+
   const calculateGiftTotal = () => {
       return artifacts.gifts.reduce((acc, gift) => {
           const price = gift.budget ? (gift.budget.min + gift.budget.max) / 2 : 0;
@@ -128,12 +93,11 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ open, onToggle }) => {
 
   return (
     <>
-      {/* Toggle Button (Visible when closed) */}
-      {!open && (
+      {!panelOpen && (
         <Tooltip title="Open Holiday Planner" placement="left">
             <Fab 
                 color="primary" 
-                onClick={onToggle}
+                onClick={() => setPanelOpen(true)}
                 sx={{ 
                     position: 'fixed', 
                     right: 20, 
@@ -151,12 +115,11 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ open, onToggle }) => {
         </Tooltip>
       )}
 
-      {/* The Panel */}
       <Paper
         elevation={4}
         sx={{
           position: 'fixed',
-          right: open ? 0 : -400,
+          right: panelOpen ? 0 : -400,
           top: 0,
           bottom: 0,
           width: 350,
@@ -175,57 +138,46 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ open, onToggle }) => {
         <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'rgba(255,255,255,0.5)' }}>
             <Box display="flex" alignItems="center">
                 <AutoAwesomeIcon sx={{ color: '#FF3B30', mr: 1 }} />
-                <Typography variant="h6" fontWeight={700}>Holiday Planner</Typography>
+                <Box>
+                    <Typography variant="h6" fontWeight={700}>Holiday Planner</Typography>
+                    <Typography variant="caption" color="text.secondary">Scenario: {scenario}</Typography>
+                </Box>
             </Box>
-            <IconButton onClick={onToggle}>
-                <ChevronRightIcon />
-            </IconButton>
-        </Box>
-
-        {/* Navigation shortcuts */}
-        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: '#fff' }}>
-          <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 0.5 }}>
-            Navigate
-          </Typography>
-          <Button startIcon={<HomeIcon />} component={RouterLink} to="/" color="primary" variant="outlined">
-            Chat
-          </Button>
-          <Button startIcon={<RestaurantIcon />} component={RouterLink} to="/recipes" color="primary" variant="outlined">
-            Recipes
-          </Button>
-          <Button startIcon={<CardGiftcardIcon />} component={RouterLink} to="/gifts" color="primary" variant="outlined">
-            Gifts
-          </Button>
-          <Button startIcon={<BrushIcon />} component={RouterLink} to="/decorations" color="primary" variant="outlined">
-            Decor
-          </Button>
-          <Button startIcon={<ManageAccountsIcon />} component={RouterLink} to="/llm-setup" color="secondary" variant="outlined">
-            LLM Setup
-          </Button>
-          <Button startIcon={<LogoutIcon />} href="/auth/logout" color="inherit">
-            Exit
-          </Button>
+            <Box>
+                <IconButton component={RouterLink} to="/llm-setup" color="secondary" size="small">
+                    <ManageAccountsIcon />
+                </IconButton>
+                <IconButton href="/auth/logout" color="default" size="small">
+                    <LogoutIcon />
+                </IconButton>
+                <IconButton onClick={() => setPanelOpen(false)}>
+                    <ChevronRightIcon />
+                </IconButton>
+            </Box>
         </Box>
 
         <Tabs 
-            value={tab} 
-            onChange={(e, v) => setTab(v)} 
-            variant="fullWidth" 
+            value={activeTab} 
+            onChange={(e, v) => setActiveTab(v)} 
+            variant="scrollable"
+            scrollButtons="auto"
             sx={{ 
                 borderBottom: 1, 
                 borderColor: 'divider',
-                '& .MuiTab-root': { textTransform: 'none', fontWeight: 600 }
+                '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minWidth: 70 }
             }}
         >
-            <Tab icon={<CheckCircleIcon />} label="To-Do" />
+            <Tab icon={<CheckCircleIcon />} label="Tasks" />
             <Tab icon={<CardGiftcardIcon />} label="Gifts" />
-            <Tab icon={<RestaurantIcon />} label="Recipes" />
+            <Tab icon={<RestaurantIcon />} label="Food" />
+            <Tab icon={<BrushIcon />} label="Decor" />
+            <Tab icon={<NoteAltIcon />} label="Notes" />
         </Tabs>
 
         <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2 }}>
             
             {/* To-Dos Tab */}
-            {tab === 0 && (
+            {activeTab === 0 && (
                 <Box>
                     <Box sx={{ display: 'flex', mb: 2 }}>
                         <TextField 
@@ -273,16 +225,11 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ open, onToggle }) => {
                             </ListItem>
                         ))}
                     </List>
-                    {artifacts.todos.length === 0 && (
-                        <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
-                            No tasks yet. Get organized!
-                        </Typography>
-                    )}
                 </Box>
             )}
 
             {/* Gifts Tab */}
-            {tab === 1 && (
+            {activeTab === 1 && (
                 <Box>
                     <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: '#34C759' }}>
                         Estimated Total: ${calculateGiftTotal().toFixed(2)}
@@ -290,7 +237,7 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ open, onToggle }) => {
                     
                     {artifacts.gifts.length === 0 ? (
                          <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
-                            Save gift ideas from the chat to see them here!
+                            Ask me for gift ideas, then save them here!
                         </Typography>
                     ) : (
                         <List>
@@ -323,11 +270,11 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ open, onToggle }) => {
             )}
 
             {/* Recipes Tab */}
-            {tab === 2 && (
+            {activeTab === 2 && (
                  <Box>
                     {artifacts.recipes.length === 0 ? (
                          <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
-                            Save recipes from the chat to keep them handy!
+                            Ask me for recipes, then save them here!
                         </Typography>
                     ) : (
                         <List>
@@ -352,6 +299,43 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ open, onToggle }) => {
                         </List>
                     )}
                  </Box>
+            )}
+
+            {/* Decorations Tab */}
+            {activeTab === 3 && (
+                 <Box>
+                    {artifacts.decorations.length === 0 ? (
+                         <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
+                            Upload a photo to get decor ideas, then save them here!
+                        </Typography>
+                    ) : (
+                        <List>
+                            {artifacts.decorations.map((decor, idx) => (
+                                <ListItem 
+                                    key={idx}
+                                    sx={{ 
+                                        bgcolor: '#fff', 
+                                        mb: 1, 
+                                        borderRadius: 2, 
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                                    }}
+                                    secondaryAction={
+                                        <IconButton edge="end" size="small" onClick={() => handleDeleteDecoration(idx)}>
+                                            <DeleteOutlineIcon fontSize="small" />
+                                        </IconButton>
+                                    }
+                                >
+                                    <ListItemText primary="Decoration Idea" secondary={decor.substring(0, 50) + "..."} />
+                                </ListItem>
+                            ))}
+                        </List>
+                    )}
+                 </Box>
+            )}
+
+            {/* Notes Tab */}
+            {activeTab === 4 && (
+                <NotesTab />
             )}
 
         </Box>

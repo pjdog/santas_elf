@@ -63,11 +63,19 @@ router.post('/llm', (req: Request, res: Response) => {
 
     try {
         const current = getConfig();
+        
+        // Safety check: If current config is valid but we are about to save an empty key 
+        // when the user might have intended to keep it (though frontend logic handles this, backend should be safe too)
+        // Actually, the frontend logic sends empty string if it wants to clear? No, frontend sends '********' to keep.
+        // But if config file read failed earlier, 'current' might be empty.
+        
+        const currentKey = current.llm?.apiKey || '';
+        const newKey = apiKey === '********' || (!apiKey && currentKey) ? currentKey : apiKey;
+        
         saveConfig({
             llm: {
                 provider: provider || 'gemini',
-                // Keep existing key if masked/empty sent back
-                apiKey: apiKey === '********' || !apiKey ? (current.llm?.apiKey || '') : apiKey,
+                apiKey: newKey,
                 model: model || '',
                 baseUrl: baseUrl || ''
             }

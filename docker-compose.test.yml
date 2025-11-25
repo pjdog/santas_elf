@@ -23,6 +23,7 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+      target: test
     environment:
       CI: "true"
       NODE_ENV: test

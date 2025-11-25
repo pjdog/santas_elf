@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
@@ -9,14 +9,19 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
+import { ArtifactContext } from '../context/ArtifactContext';
 
 interface RecipeWidgetProps {
   data: any; 
 }
 
 const RecipeWidget: React.FC<RecipeWidgetProps> = ({ data }) => {
+  const context = useContext(ArtifactContext);
+  
   if (!data) return null;
   
   const recipe = Array.isArray(data) ? data[0] : data;
@@ -30,12 +35,27 @@ const RecipeWidget: React.FC<RecipeWidgetProps> = ({ data }) => {
           borderTopLeftRadius: 24, 
           borderTopRightRadius: 24,
           display: 'flex',
-          alignItems: 'center'
+          alignItems: 'center',
+          justifyContent: 'space-between'
       }}>
-          <RestaurantMenuIcon sx={{ mr: 1.5 }} />
-          <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>
-              {recipe.name}
-          </Typography>
+          <Box display="flex" alignItems="center">
+            <RestaurantMenuIcon sx={{ mr: 1.5 }} />
+            <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>
+                {recipe.name}
+            </Typography>
+          </Box>
+          {context && (
+              <Button 
+                variant="contained" 
+                size="small" 
+                color="secondary" 
+                startIcon={<BookmarkAddIcon />}
+                onClick={() => context.addRecipe(recipe)}
+                sx={{ bgcolor: 'rgba(255,255,255,0.2)', boxShadow: 'none' }}
+              >
+                  Save
+              </Button>
+          )}
       </Box>
 
       <CardContent sx={{ pt: 2 }}>
