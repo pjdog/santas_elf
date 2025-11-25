@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "test": "jest",
     "docs": "typedoc",
+    "lint": "eslint .",
     "seed": "npm run build && node dist/db/init.js",
     "agent:cli": "ts-node ./scripts/agent-cli.ts"
   },
@@ -32,6 +33,7 @@
     "winston": "3.18.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@types/axios": "0.14.4",
     "@types/cookie-parser": "1.4.10",
     "@types/express": "4.17.21",
@@ -44,6 +46,10 @@
     "@types/supertest": "2.0.16",
     "@types/swagger-jsdoc": "6.0.4",
     "@types/swagger-ui-express": "4.1.7",
+    "eslint": "^9.39.1",
+    "eslint-plugin-jsdoc": "^61.4.1",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^16.5.0",
     "jest": "30.2.0",
     "jsdoc": "4.0.5",
     "nodemon": "3.1.11",
@@ -53,6 +59,7 @@
     "ts-node": "10.9.2",
     "ts-node-dev": "2.0.0",
     "typedoc": "0.28.14",
-    "typescript": "5.6.3"
+    "typescript": "5.6.3",
+    "typescript-eslint": "^8.48.0"
   }
 }

@@ -4,6 +4,15 @@ import { getConfig } from './configManager';
 
 const DEFAULT_TIMEOUT_MS = 12000;
 
+/**
+ * Wraps a promise with a timeout logic.
+ * Rejects if the promise does not resolve within the specified time.
+ *
+ * @param promise - The promise to wrap.
+ * @param timeoutMs - The timeout in milliseconds. Defaults to DEFAULT_TIMEOUT_MS.
+ * @returns The result of the promise.
+ * @throws Error if the operation times out.
+ */
 const withTimeout = async <T>(promise: Promise<T>, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> => {
     return await Promise.race([
         promise,

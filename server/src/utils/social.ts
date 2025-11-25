@@ -1,14 +1,28 @@
 import axios from 'axios';
 
+/**
+ * Represents a social media post from platforms like Reddit or HackerNews.
+ */
 export interface SocialPost {
+  /** The source platform (e.g., 'reddit', 'hackernews'). */
   source: string;
+  /** The title of the post. */
   title: string;
+  /** The external URL to the post content. */
   url: string;
+  /** The score or points associated with the post. */
   score: number;
 }
 
 const TIMEOUT = 7000;
 
+/**
+ * Fetches social media suggestions from multiple sources based on a query.
+ * Aggregates results from Reddit and HackerNews.
+ *
+ * @param query - The search query string.
+ * @returns A promise that resolves to an array of SocialPost objects.
+ */
 export const fetchSocialSuggestions = async (query: string): Promise<SocialPost[]> => {
   const q = encodeURIComponent(query);
 
