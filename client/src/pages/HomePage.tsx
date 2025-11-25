@@ -111,12 +111,13 @@ const HomePage: React.FC = () => {
     scrollToBottom();
   }, [messages, loading]);
 
-  const handleSendMessage = async (text: string, file?: File): Promise<any> => {
+  const handleSendMessage = async (text: string, file?: File, scenarioOverride?: string): Promise<any> => {
     if (!text.trim() && !file) return null;
 
     const userMsg: Message = { sender: 'user', text, type: 'text' };
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
+    const scenarioName = scenarioOverride || scenario;
 
     try {
         let response;
@@ -125,12 +126,12 @@ const HomePage: React.FC = () => {
             if (text) formData.append('prompt', text);
             formData.append('image', file);
             
-            response = await fetch(`/api/agent/chat?scenario=${encodeURIComponent(scenario)}`, {
+            response = await fetch(`/api/agent/chat?scenario=${encodeURIComponent(scenarioName)}`, {
                 method: 'POST',
                 body: formData,
             });
         } else {
-            response = await fetch(`/api/agent/chat?scenario=${encodeURIComponent(scenario)}`, {
+            response = await fetch(`/api/agent/chat?scenario=${encodeURIComponent(scenarioName)}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt: text }),
@@ -154,9 +155,11 @@ const HomePage: React.FC = () => {
         }
 
         if (data.type === 'switch_scenario') {
-            await setScenario(data.data);
+            const nextScenario = data.data;
+            await setScenario(nextScenario);
+            await refreshArtifacts(nextScenario);
             // Recursively call to process the original prompt in the new scenario context
-            return handleSendMessage(text, file);
+            return handleSendMessage(text, file, nextScenario);
         }
 
         const aiMsg: Message = {
@@ -248,7 +251,7 @@ const HomePage: React.FC = () => {
                             <Typography variant="body1" sx={{ lineHeight: 1.6 }}>{msg.text}</Typography>
                             {msg.trace && msg.trace.length > 0 && (
                                 <Box sx={{ mt: 1, opacity: 0.8 }}>
-                                    <ThinkingElf message="View Thought Process" steps={msg.trace} />
+                                    <ThinkingElf message="View Thought Process" steps={msg.trace} isAnimating={false} />
                                 </Box>
                             )}
                         </Paper>
@@ -265,7 +268,7 @@ const HomePage: React.FC = () => {
         ))}
         
         {/* The Thinking Elf Animation (Loading State) */}
-        {loading && <ThinkingElf />}
+        {loading && <ThinkingElf isAnimating={loading} />}
         
         <div ref={messagesEndRef} />
       </Box>

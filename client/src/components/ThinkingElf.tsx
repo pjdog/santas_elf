@@ -19,9 +19,10 @@ const float = keyframes`
 interface ThinkingElfProps {
     message?: string; // Optional message to show (e.g. "Searching...")
     steps?: string[]; // Trace of steps taken
+    isAnimating?: boolean; // Controls if the elf and dots animate
 }
 
-const ThinkingElf: React.FC<ThinkingElfProps> = ({ message, steps = [] }) => {
+const ThinkingElf: React.FC<ThinkingElfProps> = ({ message, steps = [], isAnimating = true }) => {
   const [expanded, setExpanded] = useState(false);
   const [lastStep, setLastStep] = useState<string>("");
   const isEmbedded = steps.length > 0; // If steps are provided, we assume it's embedded in a message
@@ -56,7 +57,7 @@ const ThinkingElf: React.FC<ThinkingElfProps> = ({ message, steps = [] }) => {
       }}
     >
       {/* The Elf Container */}
-      <Box sx={{ position: 'relative', animation: `${float} 2s ease-in-out infinite`, cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
+      <Box sx={{ position: 'relative', animation: isAnimating ? `${float} 2s ease-in-out infinite` : 'none', cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
         <svg width={isEmbedded ? "40" : "80"} height={isEmbedded ? "40" : "80"} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             {/* Hat */}
             <path d="M20 60 C 20 60, 10 20, 50 10 C 50 10, 90 20, 80 60 Z" fill="#FF3B30" />
@@ -96,9 +97,9 @@ const ThinkingElf: React.FC<ThinkingElfProps> = ({ message, steps = [] }) => {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
             <Box sx={{ display: 'flex', gap: 0.5 }}>
-                <Box sx={{ width: 6, height: 6, bgcolor: '#34C759', borderRadius: '50%', animation: `${float} 1s infinite 0s` }} />
-                <Box sx={{ width: 6, height: 6, bgcolor: '#FF3B30', borderRadius: '50%', animation: `${float} 1s infinite 0.2s` }} />
-                <Box sx={{ width: 6, height: 6, bgcolor: '#34C759', borderRadius: '50%', animation: `${float} 1s infinite 0.4s` }} />
+                <Box sx={{ width: 6, height: 6, bgcolor: '#34C759', borderRadius: '50%', animation: isAnimating ? `${float} 1s infinite 0s` : 'none' }} />
+                <Box sx={{ width: 6, height: 6, bgcolor: '#FF3B30', borderRadius: '50%', animation: isAnimating ? `${float} 1s infinite 0.2s` : 'none' }} />
+                <Box sx={{ width: 6, height: 6, bgcolor: '#34C759', borderRadius: '50%', animation: isAnimating ? `${float} 1s infinite 0.4s` : 'none' }} />
             </Box>
             <Typography variant="caption" color="text.secondary" fontWeight={600}>
                 {lastStep || message || "Thinking..."}
@@ -119,5 +120,4 @@ const ThinkingElf: React.FC<ThinkingElfProps> = ({ message, steps = [] }) => {
     </Box>
   );
 };
-
 export default ThinkingElf;
