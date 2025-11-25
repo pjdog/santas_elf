@@ -56,7 +56,7 @@ export const runAgentExecutor = async (
     scenario: string, 
     prompt: string, 
     contextInfo: string, 
-    maxSteps: number = 5
+    maxSteps: number = 10
 ): Promise<AgentResult> => {
     
     const scratchpad: string[] = [];
@@ -105,6 +105,7 @@ export const runAgentExecutor = async (
     3. "action_input" must be a string. If the tool needs JSON, stringify it.
     4. Do not hallucinate tool outputs. Wait for the "Observation".
     5. Your final answer will be reviewed by a Critic. Ensure it meets all user preferences.
+    6. SELF CORRECTION: If the Critic rejects your answer, analyze the specific reason (e.g. math error, missing constraint) and generate a *new* corrected Final Answer. Do not repeat the same answer.
 
     TOOL USAGE EXAMPLES:
     - manage_planner: { "action": "add_todo", "data": "Buy milk" } OR { "action": "set_budget", "data": 500 }
@@ -212,7 +213,7 @@ export const runAgentExecutor = async (
     }
 
     if (!finalAnswer) {
-        finalAnswer = "I'm sorry, I couldn't finish the task within the step limit. Here is what I've done so far.";
+        finalAnswer = "I stopped because I hit the thinking limit. However, I have performed some actions (check the plan below).";
     }
 
     return {
