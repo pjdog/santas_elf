@@ -381,3 +381,8 @@ tools['commerce_checkout'] = {
         return buildCommerceSuggestions(query);
     }
 };
+
+export const toolDefinitions = Object.entries(tools).map(([name, tool]) => ({
+    name,
+    description: tool.description
+}));

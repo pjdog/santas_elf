@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { generateContent } from '../utils/llm';
-import { tools } from '../tools';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getConfig } from '../utils/configManager';
 import redisClient from '../config/db';
 import { INITIAL_ARTIFACTS, SavedArtifacts } from './artifacts';
 import { fetchSocialSuggestions } from '../utils/social';
 import { sanitizeScenario } from '../utils/scenario';
+import { runAgentExecutor } from '../utils/agentExecutor';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -26,7 +26,8 @@ const loadArtifacts = async (userId: string, scenario: string): Promise<SavedArt
         seating: Array.isArray(artifacts?.seating) ? artifacts.seating : [],
         budget: artifacts?.budget || { limit: 0 },
         agentNotes: Array.isArray(artifacts?.agentNotes) ? artifacts.agentNotes : [],
-        preferences: artifacts?.preferences || INITIAL_ARTIFACTS.preferences
+        preferences: artifacts?.preferences || INITIAL_ARTIFACTS.preferences,
+        plan: artifacts?.plan || null
     };
 };
 
@@ -282,7 +283,7 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
             const fullPrompt = `${visionPrompt} 
             
             If this looks like a room, suggest decoration themes.
-            If it looks like food, maybe suggest a recipe or plating.
+            If it looks like food, maybe suggest a recipe or plating. 
             
             Format your response as a valid JSON object with:
             {
@@ -314,7 +315,7 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
             return res.json(responseData);
         }
 
-        // 1. Intent Recognition (Text Only)
+        // 1. Intent Recognition & Execution (ReAct Loop)
         const contextInfo = userId ? await getArtifactsContext(userId, scenario, artifactsForScenario || undefined) : "";
         const history = userId ? await getChatHistory(userId, scenario) : "";
         const lower = (prompt || '').toLowerCase();
@@ -333,141 +334,43 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
             }
         }
         
-        const classificationPrompt = `
-        You are Santa's Elf, a smart, proactive holiday assistant.
-        Scenario: ${scenario}
+        // EXECUTE THE AGENT LOOP
+        const agentResult = await runAgentExecutor(userId, scenario, prompt, contextInfo + `\n\nHISTORY:\n${history}`);
         
-        RECENT HISTORY:
-        ${history}
-
-        CURRENT CONTEXT & PREFERENCES:
-        ${contextInfo}
-        
-        User says: "${prompt}"
-        
-        YOUR GOAL:
-        Determine the best course of action. You can execute tools, ask for clarification, or chat.
-
-        INTENTS:
-        - "recipe": Find/cook food. *REQUIREMENTS: User must have specified allergies/dislikes in 'Known Preferences' or current prompt. If missing, use "clarify".*
-        - "gift": Gift ideas. *REQUIREMENTS: User must have specified recipient/interests/budget in 'Known Preferences' or current prompt. If missing, use "clarify".*
-        - "decoration": Decoration advice.
-        - "manage": Add/remove tasks, update budget, manage seating/guests, OR **update preferences**.
-        - "plan": Create a new high-level plan OR update the status of a step.
-        - "clarify": If the user asks for a complex task (recipe/gift) but is missing critical preferences (allergies, budget, etc.), OR if you need to choose between distinct options.
-        - "social": Social sentiment.
-        - "new_scenario": Switch event.
-        - "chat": General conversation.
-
-        INSTRUCTIONS FOR "clarify":
-        - If missing info, present 2 distinct options (A/B) to guide the user + "C) Something else". 
-        - Example: "To find the best recipe, do you prefer: A) Traditional & Rich, or B) Modern & Light?"
-        - Output "reply" with the question and options.
-
-        INSTRUCTIONS FOR "manage":
-        - You can update PREFERENCES using action "set_preferences".
-          Example: {"action": "set_preferences", "data": {"dietary": {"allergies": ["nuts"]}}}
-        - If the user answers a clarification question (e.g., "I want option A", "I like spicy"), use "manage" to update the relevant preference, then (optionally) suggest the next step in "reply".
-
-        INSTRUCTIONS FOR "plan":
-        - Use action "create_plan" to start a new plan. Data: { "title": "string", "steps": ["string", "string"] }
-        - Use action "update_step" to mark progress. Data: { "stepId": "string", "status": "pending"|"in_progress"|"completed"|"cancelled" }
-        - If the user says "start planning" or "make a plan", create one.
-        - If the user says "I'm done with step 1", update it.
-
-        Return a JSON object with:
-        {
-            "intent": "recipe" | "gift" | "decoration" | "manage" | "plan" | "chat" | "new_scenario" | "clarify",
-            "toolQuery": "search query OR JSON instruction for management",
-            "reply": "Message to user"
-        }
-        
-        Return ONLY JSON.
-        `;
-
-        const text = await generateContent(classificationPrompt);
-        const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        
-        let parsed;
-        try {
-            parsed = JSON.parse(cleanedText);
-        } catch (e) {
-            parsed = { intent: 'chat', reply: text };
-        }
+        let replyMessage = agentResult.finalAnswer;
 
         // Inject fun fact and todos if we just established the foundation
         if (funFact) {
              const prettyName = scenario.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-             parsed.reply = (parsed.reply || `Alright, let's plan ${prettyName}!`) + `\n\n💡 **Fun Fact:** ${funFact}`;
+             replyMessage += `\n\n💡 **Fun Fact:** ${funFact}`;
         }
         
         if (generatedTodos && generatedTodos.length > 0) {
             const todoList = generatedTodos.map(t => `- ${t}`).join('\n');
-            parsed.reply = (parsed.reply || "") + `\n\nI've added a few initial tasks to get you started:\n${todoList}\n\nDoes this look right? If so, we can move on to the guest list.`;
+            replyMessage += `\n\nI've added a few initial tasks to get you started:\n${todoList}\n\nDoes this look right?`;
         }
 
-        let data = null;
-        let type = parsed.intent;
-        let artifactsUpdated = artifactsUpdatedFlag;
-
-        // 2. Tool Execution
-        try {
-            if (type === 'recipe') {
-                data = await tools.find_recipe.function(parsed.toolQuery, { userId, scenario });
-            } else if (type === 'gift') {
-                data = await tools.find_gift.function(parsed.toolQuery, { userId, scenario });
-            } else if (type === 'decoration') {
-                data = await tools.get_decoration_suggestions.function(parsed.toolQuery, { userId, scenario });
-            } else if (type === 'manage') {
-                const result = await tools.manage_planner.function(parsed.toolQuery, { userId, scenario });
-                if (result.success) {
-                    parsed.reply = result.message;
-                    data = result.artifacts; 
-                    artifactsUpdated = true;
-                } else {
-                    parsed.reply = result.message || "I couldn't update the planner.";
-                }
-            } else if (type === 'plan') {
-                const result = await tools.manage_plan.function(parsed.toolQuery, { userId, scenario });
-                if (result.success) {
-                    parsed.reply = result.message;
-                    data = result.artifacts;
-                    artifactsUpdated = true;
-                } else {
-                    parsed.reply = result.message || "I couldn't update the plan.";
-                }
-            } else if (type === 'social') {
-                data = await fetchSocialSuggestions(parsed.toolQuery || prompt || '');
-            } else if (type === 'clarify') {
-                // Just return the question; no tool execution needed yet.
-                // We might want to mark this as a specific UI type in the future, but 'text' or 'chat' is fine for now.
-                type = 'chat'; 
-            } else if (type === 'new_scenario') {
-                return res.json({
-                    type: 'switch_scenario',
-                    message: parsed.reply || `Switching to ${parsed.toolQuery}...`,
-                    data: parsed.toolQuery
-                });
-            }
-        } catch (toolError) {
-            console.error("Tool execution failed", toolError);
-        }
-
-        const aiResponse = parsed.type && parsed.message ? { ...parsed, artifactsUpdated } : {
-            type,
-            message: parsed.reply || "Here is what I found:",
-            data,
-            artifactsUpdated
-        };
-
+        // Save History
         if (userId) {
             const userMsg = { sender: 'user', text: prompt || (file ? "[Image Uploaded]" : ""), type: 'text' };
-            const aiMsg = { sender: 'ai', text: aiResponse.message, type: aiResponse.type, data: aiResponse.data };
+            const aiMsg = { 
+                sender: 'ai', 
+                text: replyMessage, 
+                type: 'chat', 
+                data: agentResult.updatedArtifacts, // Can carry full state payload if needed
+                trace: agentResult.steps // Save reasoning trace!
+            };
             await saveMessage(userId, scenario, userMsg);
             await saveMessage(userId, scenario, aiMsg);
         }
 
-        return res.json(aiResponse);
+        return res.json({
+            type: 'chat',
+            message: replyMessage,
+            data: agentResult.updatedArtifacts, // Send back updated state
+            artifactsUpdated: agentResult.artifactsUpdated || artifactsUpdatedFlag,
+            trace: agentResult.steps
+        });
 
     } catch (error: any) {
         console.error('Error in agent chat:', error);

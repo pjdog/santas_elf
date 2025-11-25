@@ -26,6 +26,7 @@ interface Message {
     text?: string;
     type?: 'text' | 'recipe' | 'gift' | 'decoration' | 'commerce' | 'error';
     data?: any;
+    trace?: string[];
 }
 
 const SuggestionChips = ({ onSelect }: { onSelect: (text: string) => void }) => {
@@ -162,7 +163,8 @@ const HomePage: React.FC = () => {
             sender: 'ai',
             text: data.message,
             type: data.type,
-            data: data.data
+            data: data.data,
+            trace: data.trace
         };
         setMessages((prev) => [...prev, aiMsg]);
 
@@ -244,6 +246,11 @@ const HomePage: React.FC = () => {
                             }}
                         >
                             <Typography variant="body1" sx={{ lineHeight: 1.6 }}>{msg.text}</Typography>
+                            {msg.trace && msg.trace.length > 0 && (
+                                <Box sx={{ mt: 1, opacity: 0.8 }}>
+                                    <ThinkingElf message="View Thought Process" steps={msg.trace} />
+                                </Box>
+                            )}
                         </Paper>
                     )}
                     
@@ -257,7 +264,7 @@ const HomePage: React.FC = () => {
             </Fade>
         ))}
         
-        {/* The Thinking Elf Animation */}
+        {/* The Thinking Elf Animation (Loading State) */}
         {loading && <ThinkingElf />}
         
         <div ref={messagesEndRef} />
