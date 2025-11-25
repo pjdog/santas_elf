@@ -105,6 +105,10 @@ export const runAgentExecutor = async (
     3. "action_input" must be a string. If the tool needs JSON, stringify it.
     4. Do not hallucinate tool outputs. Wait for the "Observation".
     5. Your final answer will be reviewed by a Critic. Ensure it meets all user preferences.
+
+    TOOL USAGE EXAMPLES:
+    - manage_planner: { "action": "add_todo", "data": "Buy milk" } OR { "action": "set_budget", "data": 500 }
+    - manage_plan: { "action": "create_plan", "data": { "title": "Party", "steps": ["Step 1", "Step 2"] } }
     `;
 
     console.log(`[AgentExecutor] Starting loop for: "${prompt}"`);

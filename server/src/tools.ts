@@ -187,7 +187,7 @@ export const tools: Record<string, { description: string, function: (input: stri
   },
   // --- Internal Management Tools ---
   manage_planner: {
-      description: "Adds, removes, or updates items in the user's planner (tasks, budget, seating). Input should be a JSON string instruction.",
+      description: "Adds, removes, or updates items in the user's planner (tasks, budget, seating). Input should be a JSON string with 'action' and 'data'. Valid actions: add_todo, remove_todo, set_budget, add_table, add_guest, set_features, set_preferences. Example: { \"action\": \"add_todo\", \"data\": \"Buy milk\" } or { \"action\": \"set_budget\", \"data\": 500 }.",
       function: async (input: string, context?: { userId: string, scenario?: string }) => {
           if (!context?.userId) return { success: false, message: "Error: No user context." };
           const scenario = sanitizeScenario(context.scenario || 'default');
@@ -302,7 +302,7 @@ export const tools: Record<string, { description: string, function: (input: stri
       }
   },
   manage_plan: {
-      description: "Creates or updates the agent's high-level plan. Input should be a JSON string instruction.",
+      description: "Creates or updates the agent's high-level plan. Input should be a JSON string with 'action' and 'data'. Valid actions: 'create_plan' (data: { title: string, steps: string[] }) or 'update_step' (data: { stepId: string, status: string }). Example: { \"action\": \"create_plan\", \"data\": { \"title\": \"Party\", \"steps\": [\"Step 1\"] } }.",
       function: async (input: string, context?: { userId: string, scenario?: string }) => {
           if (!context?.userId) return { success: false, message: "Error: No user context." };
           const scenario = sanitizeScenario(context.scenario || 'default');
