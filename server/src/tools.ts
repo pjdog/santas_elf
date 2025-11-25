@@ -394,6 +394,38 @@ tools['find_product_insights'] = {
     }
 };
 
+tools['delete_scenario'] = {
+    description: "Deletes the current scenario's plan, artifacts, and chat history. CAUTION: This action is irreversible. Input: 'confirm' to proceed.",
+    function: async (input: string, context?: { userId: string, scenario?: string }) => {
+        if (!context?.userId) return { success: false, message: "Error: No user context." };
+        const scenario = sanitizeScenario(context.scenario || 'default');
+
+        if (input.toLowerCase().trim() !== 'confirm') {
+            return { success: false, message: "Deletion cancelled. You must provide the input 'confirm' to delete the scenario." };
+        }
+
+        try {
+            const artifactKey = `santas_elf:artifacts:${context.userId}:${scenario}`;
+            const chatKey = `chat:${context.userId}:${scenario}`;
+
+            await redisClient.del(artifactKey);
+            await redisClient.del(chatKey);
+            
+            // We don't delete the persisted file on disk for safety/audit reasons in this tool, 
+            // but we could if required. Redis is the source of truth for the app.
+
+            return { 
+                success: true, 
+                message: `Scenario '${scenario}' has been deleted. Artifacts and chat history are cleared.`,
+                artifacts: INITIAL_ARTIFACTS // Return empty artifacts to reset UI
+            };
+        } catch (e: any) {
+            console.error("Delete scenario error", e);
+            return { success: false, message: "Failed to delete scenario." };
+        }
+    }
+};
+
 export const toolDefinitions = Object.entries(tools).map(([name, tool]) => ({
     name,
     description: tool.description
