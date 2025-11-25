@@ -47,6 +47,7 @@ const ArtifactPanel: React.FC = () => {
   // Scenario Management State
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [newScenarioName, setNewScenarioName] = useState('');
 
   if (!context) return null;
@@ -59,7 +60,8 @@ const ArtifactPanel: React.FC = () => {
       activeTab, 
       setActiveTab,
       scenario,
-      setScenario
+      setScenario,
+      deleteScenario
   } = context;
 
   // Scenario Handlers
@@ -76,6 +78,14 @@ const ArtifactPanel: React.FC = () => {
           setIsAddOpen(false);
           handleMenuClose();
       }
+  };
+  const handleDeleteRequest = () => {
+      handleMenuClose();
+      setIsDeleteConfirmOpen(true);
+  };
+  const handleDeleteConfirm = async () => {
+      await deleteScenario(scenario);
+      setIsDeleteConfirmOpen(false);
   };
 
   // Dynamic Tab Logic
@@ -199,6 +209,10 @@ const ArtifactPanel: React.FC = () => {
                     <MenuItem onClick={() => { handleMenuClose(); setIsAddOpen(true); }}>
                         <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
                         New Scenario
+                    </MenuItem>
+                    <MenuItem onClick={handleDeleteRequest} sx={{ color: 'error.main' }}>
+                        <ListItemIcon><DeleteOutlineIcon fontSize="small" color="error" /></ListItemIcon>
+                        Delete Scenario
                     </MenuItem>
                 </Menu>
             </Box>
@@ -419,6 +433,21 @@ const ArtifactPanel: React.FC = () => {
             <DialogActions>
                 <Button onClick={() => setIsAddOpen(false)}>Cancel</Button>
                 <Button onClick={handleCreate} variant="contained">Create</Button>
+            </DialogActions>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)}>
+            <DialogTitle>Delete Scenario?</DialogTitle>
+            <DialogContent>
+                <Typography>
+                    Are you sure you want to delete <strong>{scenario}</strong>? 
+                    This will permanently remove all tasks, recipes, gifts, and chat history for this event.
+                </Typography>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
+                <Button onClick={handleDeleteConfirm} variant="contained" color="error">Delete</Button>
             </DialogActions>
         </Dialog>
 

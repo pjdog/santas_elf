@@ -85,6 +85,7 @@ interface ArtifactContextType {
   setPanelOpen: (open: boolean) => void;
   activeTab: number;
   setActiveTab: (tab: number) => void;
+  deleteScenario: (name: string) => Promise<void>;
 }
 
 export const ArtifactContext = createContext<ArtifactContextType | undefined>(undefined);
@@ -121,6 +122,21 @@ export const ArtifactProvider: React.FC<{ children: ReactNode }> = ({ children }
   const cleanScenario = (value: string) => {
     const trimmed = value?.trim().toLowerCase();
     return trimmed || 'default';
+  };
+
+  const deleteScenario = async (name: string) => {
+      const scenarioName = cleanScenario(name);
+      try {
+          await fetch(`/api/artifacts?scenario=${encodeURIComponent(scenarioName)}`, {
+              method: 'DELETE'
+          });
+          // Reset to default after deletion if deleting current
+          if (scenarioName === scenario) {
+              setScenario('default');
+          }
+      } catch (e) {
+          console.error("Failed to delete scenario", e);
+      }
   };
 
   const refreshArtifacts = async (targetScenario?: string) => {
@@ -209,7 +225,8 @@ export const ArtifactProvider: React.FC<{ children: ReactNode }> = ({ children }
         panelOpen, 
         setPanelOpen,
         activeTab,
-        setActiveTab
+        setActiveTab,
+        deleteScenario
     }}>
       {children}
     </ArtifactContext.Provider>

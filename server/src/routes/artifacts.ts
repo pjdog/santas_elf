@@ -330,4 +330,31 @@ router.post('/', rateLimit, async (req, res) => {
   }
 });
 
+router.delete('/', async (req, res) => {
+    // @ts-ignore
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const scenario = sanitizeScenario(req.query.scenario as string);
+
+    // Default scenario cannot be deleted via this endpoint for safety, or maybe it can?
+    // The user request implies removing scenarios. Let's allow it but maybe warn or just do it.
+    // The tool `delete_scenario` allows deleting 'default' if confirmed. We will allow it here too.
+
+    try {
+        const artifactKey = `santas_elf:artifacts:${userId}:${scenario}`;
+        const chatKey = `chat:${userId}:${scenario}`;
+
+        await redisClient.del(artifactKey);
+        await redisClient.del(chatKey);
+        
+        // We should also probably remove it from any list of scenarios if we tracked that, 
+        // but currently scenarios are implicit.
+
+        res.json({ message: `Scenario '${scenario}' deleted successfully.` });
+    } catch (error) {
+        console.error('Error deleting scenario:', error);
+        res.status(500).json({ message: 'Failed to delete scenario' });
+    }
+});
+
 export default router;
