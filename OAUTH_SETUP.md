@@ -46,3 +46,8 @@ This guide will walk you through setting up Google OAuth2 for the Santa's Elf ap
     ```
 
 You are now ready to proceed with the backend setup for authentication.
+
+## CLI Login with Google
+- Obtain a Google ID token for the configured OAuth client (for example, via `gcloud auth print-identity-token` against the same client ID).
+- Run the CLI with `GOOGLE_ID_TOKEN=<token> AGENT_BASE_URL=http://localhost:5000 npm run agent:cli`.
+- The server validates the token audience against `GOOGLE_CLIENT_ID` and accepts it as an authenticated session for CLI calls.

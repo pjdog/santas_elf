@@ -7,20 +7,19 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import SettingsIcon from '@mui/icons-material/Settings';
+import HeadphonesIcon from '@mui/icons-material/Headphones';
 import Avatar from '@mui/material/Avatar';
 import { useTheme } from '@mui/material/styles';
 import { Link as RouterLink } from 'react-router-dom';
 import { Fade } from '@mui/material';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
 import { ArtifactContext } from '../context/ArtifactContext';
 
 import RecipeWidget from '../components/RecipeWidget';
 import GiftWidget from '../components/GiftWidget';
 import DecorationWidget from '../components/DecorationWidget';
-import CommerceWidget from '../components/CommerceWidget';
+import VoiceMode from '../components/VoiceMode';
 
 interface Message {
     sender: 'user' | 'ai';
@@ -62,7 +61,7 @@ const SuggestionChips = ({ onSelect }: { onSelect: (text: string) => void }) => 
 const HomePage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const [scenarioInput, setScenarioInput] = useState('default');
+  const [voiceModeOpen, setVoiceModeOpen] = useState(false);
   
   const context = useContext(ArtifactContext);
   const panelOpen = context?.panelOpen ?? false;
@@ -101,7 +100,6 @@ const HomePage: React.FC = () => {
 
     setMessages([]); // clear previous scenario conversation
     fetchHistory();
-    setScenarioInput(scenario);
   }, [scenario]);
 
   const scrollToBottom = () => {
@@ -112,8 +110,8 @@ const HomePage: React.FC = () => {
     scrollToBottom();
   }, [messages, loading]);
 
-  const handleSendMessage = async (text: string, file?: File) => {
-    if (!text.trim() && !file) return;
+  const handleSendMessage = async (text: string, file?: File): Promise<any> => {
+    if (!text.trim() && !file) return null;
 
     const userMsg: Message = { sender: 'user', text, type: 'text' };
     setMessages((prev) => [...prev, userMsg]);
@@ -145,7 +143,7 @@ const HomePage: React.FC = () => {
                 text: "Please log in to continue chatting." 
             }]);
             setLoading(false);
-            return;
+            return null;
         }
 
         const data = await response.json();
@@ -156,8 +154,8 @@ const HomePage: React.FC = () => {
 
         if (data.type === 'switch_scenario') {
             await setScenario(data.data);
-            setLoading(false);
-            return;
+            // Recursively call to process the original prompt in the new scenario context
+            return handleSendMessage(text, file);
         }
 
         const aiMsg: Message = {
@@ -172,6 +170,8 @@ const HomePage: React.FC = () => {
         if (data.artifactsUpdated) {
             refreshArtifacts();
         }
+        
+        return data;
 
     } catch (error) {
         console.error("Agent error:", error);
@@ -180,62 +180,39 @@ const HomePage: React.FC = () => {
             type: 'error', 
             text: "I'm having trouble connecting to the North Pole. Please try again." 
         }]);
+        return null;
     } finally {
         setLoading(false);
     }
-  };
-
-  const quickScenarios = ['default', 'christmas', 'thanksgiving', 'holiday-party'];
-
-  const handleScenarioApply = async (name: string) => {
-    const next = name?.trim() || 'default';
-    setScenarioInput(next);
-    await setScenario(next);
   };
 
   const renderContent = (msg: Message) => {
     if (msg.type === 'recipe') return <RecipeWidget data={msg.data} />;
     if (msg.type === 'gift') return <GiftWidget data={msg.data} />;
     if (msg.type === 'decoration') return <DecorationWidget data={msg.data} />;
-    if (msg.type === 'commerce') return <CommerceWidget data={msg.data} />;
     return null;
   };
 
   return (
     <Box sx={{ height: '85vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       
-      <Box sx={{ position: 'absolute', top: -20, right: 0, zIndex: 10, display: 'flex', alignItems: 'center' }}>
-        <IconButton component={RouterLink} to="/llm-setup" sx={{ color: 'text.secondary' }}>
+      <Box sx={{ position: 'absolute', top: -20, right: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <IconButton onClick={() => setVoiceModeOpen(true)} color="primary" sx={{ bgcolor: 'rgba(255,255,255,0.8)' }}>
+            <HeadphonesIcon />
+        </IconButton>
+        <IconButton component={RouterLink} to="/llm-setup" sx={{ color: 'text.secondary', bgcolor: 'rgba(255,255,255,0.8)' }}>
             <SettingsIcon />
         </IconButton>
       </Box>
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', alignItems: 'center', gap: 1, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Scenario</Typography>
-        <Stack direction="row" spacing={1}>
-            {quickScenarios.map((name) => (
-                <Chip 
-                    key={name} 
-                    label={name} 
-                    color={scenario === name ? 'primary' : 'default'}
-                    onClick={() => handleScenarioApply(name)}
-                />
-            ))}
-        </Stack>
-        <TextField 
-            size="small" 
-            label="Custom" 
-            value={scenarioInput} 
-            onChange={(e) => setScenarioInput(e.target.value)} 
-            sx={{ minWidth: 160 }}
-        />
-        <Button variant="contained" onClick={() => handleScenarioApply(scenarioInput)}>Apply</Button>
-        <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-            Track separate plans (e.g., Christmas vs Thanksgiving) and the agent will add foundation notes per scenario.
-        </Typography>
-      </Paper>
-
       <ArtifactPanel />
+      
+      <VoiceMode 
+        open={voiceModeOpen} 
+        onClose={() => setVoiceModeOpen(false)} 
+        onSendMessage={handleSendMessage}
+        scenario={scenario}
+      />
 
       <Box sx={{ flexGrow: 1, overflowY: 'auto', px: 2, py: 4, mr: panelOpen ? '350px' : 0, transition: 'margin-right 0.3s' }}>
         {messages.map((msg, index) => (

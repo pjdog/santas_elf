@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import redisClient from '../config/db';
-import { AgentNote, Preferences } from '../models/types';
+import { AgentNote, Preferences, AgentPlan, PlanStep } from '../models/types';
 import { sanitizeScenario } from '../utils/scenario';
 import { persistArtifactsToDisk } from '../utils/artifactFs';
 
@@ -36,6 +36,7 @@ export interface SavedArtifacts {
   agentNotes: AgentNote[];
   features: string[];
   preferences: Preferences;
+  plan: AgentPlan | null;
 }
 
 export const INITIAL_ARTIFACTS: SavedArtifacts = {
@@ -51,7 +52,8 @@ export const INITIAL_ARTIFACTS: SavedArtifacts = {
       dietary: { allergies: [], dislikes: [], diets: [] },
       gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
       decorations: { room: "", style: "", preferredColors: [] }
-  }
+  },
+  plan: null
 };
 
 const rateLimit = async (req: Request, res: Response, next: NextFunction) => {
@@ -238,13 +240,44 @@ const validateArtifacts = (data: any): { valid: boolean; cleaned?: SavedArtifact
         }
     }
 
+    // Plan Validation
+    let plan: AgentPlan | null = null;
+    if (data.plan && typeof data.plan === 'object') {
+        const p = data.plan;
+        if (typeof p.id === 'string' && typeof p.title === 'string' && Array.isArray(p.steps)) {
+            const steps: PlanStep[] = [];
+            for (const step of p.steps) {
+                if (
+                    typeof step.id === 'string' &&
+                    typeof step.description === 'string' &&
+                    ['pending', 'in_progress', 'completed', 'cancelled'].includes(step.status)
+                ) {
+                    steps.push({
+                        id: step.id.substring(0, 50),
+                        description: step.description.substring(0, 200).replace(/</g, "&lt;"),
+                        status: step.status
+                    });
+                }
+            }
+            // Only accept valid plans
+            if (steps.length > 0 || p.steps.length === 0) {
+                plan = {
+                    id: p.id.substring(0, 50),
+                    title: p.title.substring(0, 100).replace(/</g, "&lt;"),
+                    steps: steps.slice(0, 20) // Max 20 steps
+                };
+            }
+        }
+    }
+
 
     return { 
         valid: true, 
         cleaned: { 
             todos, recipes, gifts, decorations, seating, budget, agentNotes,
             features: features.length > 0 ? features : (data.features ? [] : ['recipes', 'gifts', 'decorations']),
-            preferences
+            preferences,
+            plan
         } 
     };
 };

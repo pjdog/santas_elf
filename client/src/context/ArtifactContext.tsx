@@ -25,6 +25,39 @@ export interface AgentNote {
     tableRows?: string[][];
 }
 
+export interface Preferences {
+  dietary: {
+    allergies: string[];
+    dislikes: string[];
+    diets: string[];
+  };
+  gifts: {
+    recipientRelationship: string;
+    recipientAge: number | null;
+    recipientInterests: string[];
+    budgetMin: number;
+    budgetMax: number;
+    dislikes: string[];
+  };
+  decorations: {
+    room: string;
+    style: string;
+    preferredColors: string[];
+  };
+}
+
+export interface PlanStep {
+  id: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+}
+
+export interface AgentPlan {
+  id: string;
+  title: string;
+  steps: PlanStep[];
+}
+
 export interface SavedArtifacts {
   todos: TodoItem[];
   recipes: any[];
@@ -33,6 +66,9 @@ export interface SavedArtifacts {
   seating: Table[];
   budget: Budget;
   agentNotes: AgentNote[];
+  features: string[];
+  preferences: Preferences;
+  plan: AgentPlan | null;
 }
 
 interface ArtifactContextType {
@@ -55,7 +91,20 @@ export const ArtifactContext = createContext<ArtifactContextType | undefined>(un
 
 export const ArtifactProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [artifacts, setArtifacts] = useState<SavedArtifacts>({ 
-      todos: [], recipes: [], gifts: [], decorations: [], seating: [], budget: { limit: 0 }, agentNotes: []
+      todos: [], 
+      recipes: [], 
+      gifts: [], 
+      decorations: [], 
+      seating: [], 
+      budget: { limit: 0 }, 
+      agentNotes: [], 
+      features: ['recipes', 'gifts', 'decorations'],
+      preferences: {
+          dietary: { allergies: [], dislikes: [], diets: [] },
+          gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
+          decorations: { room: "", style: "", preferredColors: [] }
+      },
+      plan: null
   });
   const [scenario, setScenarioState] = useState(() => {
       return localStorage.getItem('currentScenario') || 'default';
@@ -88,7 +137,14 @@ export const ArtifactProvider: React.FC<{ children: ReactNode }> = ({ children }
                 decorations: Array.isArray(data?.decorations) ? data.decorations : [],
                 seating: Array.isArray(data?.seating) ? data.seating : [],
                 budget: data?.budget || { limit: 0 },
-                agentNotes: Array.isArray(data?.agentNotes) ? data.agentNotes : []
+                agentNotes: Array.isArray(data?.agentNotes) ? data.agentNotes : [],
+                features: Array.isArray(data?.features) ? data.features : ['recipes', 'gifts', 'decorations'],
+                preferences: data?.preferences || {
+                    dietary: { allergies: [], dislikes: [], diets: [] },
+                    gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
+                    decorations: { room: "", style: "", preferredColors: [] }
+                },
+                plan: data?.plan || null
             });
         }
     } catch (e) {

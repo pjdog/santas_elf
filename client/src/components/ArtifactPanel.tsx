@@ -14,6 +14,13 @@ import TextField from '@mui/material/TextField';
 import Fab from '@mui/material/Fab';
 import Badge from '@mui/material/Badge';
 import Tooltip from '@mui/material/Tooltip';
+import Button from '@mui/material/Button';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
@@ -26,13 +33,21 @@ import BrushIcon from '@mui/icons-material/Brush';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import NoteAltIcon from '@mui/icons-material/NoteAlt';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { Link as RouterLink } from 'react-router-dom';
 import { ArtifactContext } from '../context/ArtifactContext';
 import NotesTab from './NotesTab';
+import PreferencesTab from './PreferencesTab';
 
 const ArtifactPanel: React.FC = () => {
   const context = useContext(ArtifactContext);
   const [newTodo, setNewTodo] = useState('');
+  
+  // Scenario Management State
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newScenarioName, setNewScenarioName] = useState('');
 
   if (!context) return null;
 
@@ -43,8 +58,41 @@ const ArtifactPanel: React.FC = () => {
       setPanelOpen, 
       activeTab, 
       setActiveTab,
-      scenario 
+      scenario,
+      setScenario
   } = context;
+
+  // Scenario Handlers
+  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
+  const handleMenuClose = () => setAnchorEl(null);
+  const handleSwitch = (s: string) => {
+      setScenario(s);
+      handleMenuClose();
+  };
+  const handleCreate = () => {
+      if(newScenarioName.trim()) {
+          setScenario(newScenarioName.trim());
+          setNewScenarioName('');
+          setIsAddOpen(false);
+          handleMenuClose();
+      }
+  };
+
+  // Dynamic Tab Logic
+  const allTabs = [
+      { id: 'tasks', label: 'Tasks', icon: <CheckCircleIcon />, contentIndex: 0 },
+      { id: 'gifts', label: 'Gifts', icon: <CardGiftcardIcon />, feature: 'gifts', contentIndex: 1 },
+      { id: 'food', label: 'Food', icon: <RestaurantIcon />, feature: 'recipes', contentIndex: 2 }, // mapped 'recipes' feature to Food tab
+      { id: 'decor', label: 'Decor', icon: <BrushIcon />, feature: 'decorations', contentIndex: 3 },
+      { id: 'notes', label: 'Notes', icon: <NoteAltIcon />, contentIndex: 4 },
+      { id: 'prefs', label: 'Prefs', icon: <SettingsIcon />, contentIndex: 5 },
+  ];
+
+  const visibleTabs = allTabs.filter(t => !t.feature || (artifacts.features || []).includes(t.feature));
+  
+  // Helper to find content index from visible tab index
+  const currentContentIndex = visibleTabs[activeTab]?.contentIndex ?? 0;
+
 
   const handleAddTodo = () => {
     if (!newTodo.trim()) return;
@@ -134,14 +182,25 @@ const ArtifactPanel: React.FC = () => {
           overflow: 'hidden'
         }}
       >
-        {/* Header */}
+        {/* Header with Scenario Switcher */}
         <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'rgba(255,255,255,0.5)' }}>
-            <Box display="flex" alignItems="center">
+            <Box display="flex" alignItems="center" flexGrow={1} overflow="hidden">
                 <AutoAwesomeIcon sx={{ color: '#FF3B30', mr: 1 }} />
-                <Box>
-                    <Typography variant="h6" fontWeight={700}>Holiday Planner</Typography>
-                    <Typography variant="caption" color="text.secondary">Scenario: {scenario}</Typography>
+                <Box onClick={handleMenuClick} sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <Typography variant="h6" fontWeight={700} noWrap sx={{ maxWidth: 150 }}>
+                        {scenario}
+                    </Typography>
+                    <ExpandMoreIcon fontSize="small" color="action" />
                 </Box>
+                <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+                    <MenuItem onClick={() => handleSwitch('default')}>Default</MenuItem>
+                    <MenuItem onClick={() => handleSwitch('christmas')}>Christmas</MenuItem>
+                    <MenuItem onClick={() => handleSwitch('thanksgiving')}>Thanksgiving</MenuItem>
+                    <MenuItem onClick={() => { handleMenuClose(); setIsAddOpen(true); }}>
+                        <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
+                        New Scenario
+                    </MenuItem>
+                </Menu>
             </Box>
             <Box>
                 <IconButton component={RouterLink} to="/llm-setup" color="secondary" size="small">
@@ -156,8 +215,9 @@ const ArtifactPanel: React.FC = () => {
             </Box>
         </Box>
 
+        {/* Dynamic Tabs */}
         <Tabs 
-            value={activeTab} 
+            value={activeTab < visibleTabs.length ? activeTab : 0} 
             onChange={(e, v) => setActiveTab(v)} 
             variant="scrollable"
             scrollButtons="auto"
@@ -167,17 +227,15 @@ const ArtifactPanel: React.FC = () => {
                 '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minWidth: 70 }
             }}
         >
-            <Tab icon={<CheckCircleIcon />} label="Tasks" />
-            <Tab icon={<CardGiftcardIcon />} label="Gifts" />
-            <Tab icon={<RestaurantIcon />} label="Food" />
-            <Tab icon={<BrushIcon />} label="Decor" />
-            <Tab icon={<NoteAltIcon />} label="Notes" />
+            {visibleTabs.map((tab) => (
+                <Tab key={tab.id} icon={tab.icon} label={tab.label} />
+            ))}
         </Tabs>
 
         <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2 }}>
             
-            {/* To-Dos Tab */}
-            {activeTab === 0 && (
+            {/* To-Dos Tab (Index 0) */}
+            {currentContentIndex === 0 && (
                 <Box>
                     <Box sx={{ display: 'flex', mb: 2 }}>
                         <TextField 
@@ -228,8 +286,8 @@ const ArtifactPanel: React.FC = () => {
                 </Box>
             )}
 
-            {/* Gifts Tab */}
-            {activeTab === 1 && (
+            {/* Gifts Tab (Index 1) */}
+            {currentContentIndex === 1 && (
                 <Box>
                     <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: '#34C759' }}>
                         Estimated Total: ${calculateGiftTotal().toFixed(2)}
@@ -269,8 +327,8 @@ const ArtifactPanel: React.FC = () => {
                 </Box>
             )}
 
-            {/* Recipes Tab */}
-            {activeTab === 2 && (
+            {/* Recipes Tab (Index 2) */}
+            {currentContentIndex === 2 && (
                  <Box>
                     {artifacts.recipes.length === 0 ? (
                          <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
@@ -301,8 +359,8 @@ const ArtifactPanel: React.FC = () => {
                  </Box>
             )}
 
-            {/* Decorations Tab */}
-            {activeTab === 3 && (
+            {/* Decorations Tab (Index 3) */}
+            {currentContentIndex === 3 && (
                  <Box>
                     {artifacts.decorations.length === 0 ? (
                          <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
@@ -333,12 +391,37 @@ const ArtifactPanel: React.FC = () => {
                  </Box>
             )}
 
-            {/* Notes Tab */}
-            {activeTab === 4 && (
+            {/* Notes Tab (Index 4) */}
+            {currentContentIndex === 4 && (
                 <NotesTab />
             )}
 
+            {/* Preferences Tab (Index 5) */}
+            {currentContentIndex === 5 && (
+                <PreferencesTab />
+            )}
+
         </Box>
+
+        {/* Create Scenario Dialog */}
+        <Dialog open={isAddOpen} onClose={() => setIsAddOpen(false)}>
+            <DialogTitle>Create New Plan</DialogTitle>
+            <DialogContent>
+                <TextField
+                    autoFocus
+                    margin="dense"
+                    label="Scenario Name (e.g. Office Party)"
+                    fullWidth
+                    value={newScenarioName}
+                    onChange={(e) => setNewScenarioName(e.target.value)}
+                />
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreate} variant="contained">Create</Button>
+            </DialogActions>
+        </Dialog>
+
       </Paper>
     </>
   );

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
+  "out": "docs",
+  "name": "Santa's Elf API",
+  "includeVersion": true,
+  "readme": "../README.md",
+  "disableSources": false,
+  "sourceLinkTemplate": "https://github.com/your-repo/santas_elf/blob/main/santas_elf/server/{path}#L{line}",
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "categorizeByGroup": true,
+  "searchInComments": true,
+  "cleanOutputDir": true
+}

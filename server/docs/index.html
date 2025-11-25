@@ -1,0 +1,102 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="./"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>Santa&#39;s Elf API - v1.0.0</title><meta name="description" content="Documentation for Santa's Elf API"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="assets/style.css"/><link rel="stylesheet" href="assets/highlight.css"/><script defer src="assets/main.js"></script><script async src="assets/icons.js" id="tsd-icons-script"></script><script async src="assets/search.js" id="tsd-search-script"></script><script async src="assets/navigation.js" id="tsd-nav-script"></script><script async src="assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar"><div class="tsd-toolbar-contents container"><a href="index.html" class="title">Santa&#39;s Elf API - v1.0.0</a><div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/><ul role="listbox" id="tsd-search-results"></ul><div id="tsd-search-status" aria-live="polite" aria-atomic="true"><div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-menu"></use></svg></a></div></header><div class="container container-main"><div class="col-content"><div class="tsd-page-title"><h1>Santa&#39;s Elf API - v1.0.0</h1></div><div class="tsd-panel tsd-typography"><h1 id="🎅-santas-elf-your-agentic-holiday-helper" class="tsd-anchor-link">🎅 Santa's Elf - Your Agentic Holiday Helper<a href="#🎅-santas-elf-your-agentic-holiday-helper" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h1><div align="center">
+<p><img src="media/favicon.svg" alt="Santa's Elf Banner"></p>
+<p><strong>A futuristic, AI-powered holiday companion designed to make your season bright.</strong></p>
+<p><a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+<a href="https://www.docker.com/"><img src="https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&amp;logo=docker&amp;logoColor=white" alt="Docker"></a>
+<a href="https://reactjs.org/"><img src="https://img.shields.io/badge/react-%2320232a.svg?style=flat&amp;logo=react&amp;logoColor=%2361DAFB" alt="React"></a>
+<a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node.js-6DA55F?style=flat&amp;logo=node.js&amp;logoColor=white" alt="Node.js"></a></p>
+<p><a href="#-features">Features</a> • <a href="#-architecture">Architecture</a> • <a href="#-quick-start">Quick Start</a> • <a href="#-configuration">Configuration</a> • <a href="#-development">Development</a></p>
+</div>
+<hr>
+<h2 id="✨-features" class="tsd-anchor-link">✨ Features<a href="#✨-features" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2><p>Santa's Elf isn't just a todo list; it's a fully interactive, voice-enabled agent that brings the North Pole to your device.</p>
+<ul>
+<li><strong>🧠 AI Agent Chat:</strong> Have a natural conversation with an Elf who understands your intent. Ask for recipes, gift ideas, or just chat!</li>
+<li><strong>🍲 Recipe Finder:</strong> Discover delicious holiday meals with detailed ingredient lists and step-by-step instructions.</li>
+<li><strong>🎁 Gift Guide:</strong> Get personalized gift suggestions based on interests, budget, and recipient type.</li>
+<li><strong>🎄 Decoration Genius:</strong> Upload a photo of your room and get AI-powered suggestions on how to decorate it for the season.</li>
+<li><strong>🗣️ Voice Integration:</strong> Hands-free interaction support – just speak to the Elf!</li>
+<li><strong>📱 Modern iOS-Style UI:</strong> A beautiful, glassmorphic interface designed for touch and responsiveness (inspired by iOS 26 concepts).</li>
+<li><strong>🔐 Secure Auth:</strong> Google OAuth integration for secure user sessions.</li>
+</ul>
+<hr>
+<h2 id="🏗-architecture" class="tsd-anchor-link">🏗 Architecture<a href="#🏗-architecture" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2><p>The project is built as a modern full-stack application containerized for easy deployment.</p>
+<ul>
+<li><strong>Frontend:</strong> React 19 with Material UI v6 (Custom Glassmorphic Theme).</li>
+<li><strong>Backend:</strong> Node.js / Express with TypeScript.</li>
+<li><strong>Database/Cache:</strong> Redis for session management and caching.</li>
+<li><strong>AI/ML:</strong> Integration with Generative AI models for intent recognition and content generation.</li>
+<li><strong>Infrastructure:</strong> Nginx reverse proxy, Docker Compose orchestration.</li>
+</ul>
+<hr>
+<h2 id="🚀-quick-start" class="tsd-anchor-link">🚀 Quick Start<a href="#🚀-quick-start" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2><p>The easiest way to run Santa's Elf is using Docker Compose via our helper script.</p>
+<h3 id="prerequisites" class="tsd-anchor-link">Prerequisites<a href="#prerequisites" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3><ul>
+<li><strong>Docker</strong> &amp; <strong>Docker Compose</strong> installed.</li>
+<li><em>(Optional)</em> <strong>Google Cloud Credentials</strong> for OAuth (see <a href="#-configuration">Configuration</a>).</li>
+</ul>
+<h3 id="1-start-the-app" class="tsd-anchor-link">1. Start the App<a href="#1-start-the-app" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3><p>We provide a robust management script to handle the lifecycle of the application.</p>
+<pre><code class="bash"><span class="hl-0">./manage.sh</span><span class="hl-1"> </span><span class="hl-2">up</span>
+</code><button type="button">Copy</button></pre>
+
+<p>This command will:</p>
+<ol>
+<li>Create a <code>.env</code> file from templates (if missing).</li>
+<li>Build the frontend and backend images.</li>
+<li>Start Redis, Backend, Frontend, and Nginx services.</li>
+</ol>
+<p><strong>The app will be available at:</strong> <a href="http://localhost:8080">http://localhost:8080</a></p>
+<h3 id="2-stop-the-app" class="tsd-anchor-link">2. Stop the App<a href="#2-stop-the-app" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3><p>To stop all services and remove orphan containers:</p>
+<pre><code class="bash"><span class="hl-0">./manage.sh</span><span class="hl-1"> </span><span class="hl-2">down</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="3-clean-reset" class="tsd-anchor-link">3. Clean Reset<a href="#3-clean-reset" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3><p>To wipe the database and start fresh:</p>
+<pre><code class="bash"><span class="hl-0">./manage.sh</span><span class="hl-1"> </span><span class="hl-2">clean</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="api-documentation-jsdoc" class="tsd-anchor-link">API Documentation (JSDoc)<a href="#api-documentation-jsdoc" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3><p>Generate static docs (served at <code>/docs</code> inside the running container):</p>
+<pre><code class="bash"><span class="hl-0">cd</span><span class="hl-1"> </span><span class="hl-2">server</span><br/><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">install</span><br/><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">run</span><span class="hl-1"> </span><span class="hl-2">docs</span>
+</code><button type="button">Copy</button></pre>
+
+<p>Then start the stack and visit <a href="http://localhost:8080/docs">http://localhost:8080/docs</a>.</p>
+<hr>
+<h2 id="⚙️-configuration" class="tsd-anchor-link">⚙️ Configuration<a href="#⚙️-configuration" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2><h3 id="google-authentication-oauth-20" class="tsd-anchor-link">Google Authentication (OAuth 2.0)<a href="#google-authentication-oauth-20" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3><p>To enable user login, you need Google OAuth credentials.</p>
+<ol>
+<li>Go to the <a href="https://console.cloud.google.com/">Google Cloud Console</a>.</li>
+<li>Create a new project and enable the <strong>Google People API</strong>.</li>
+<li>Create OAuth credentials (Client ID &amp; Secret).</li>
+<li>Set the <strong>Authorized Redirect URI</strong> to: <code>http://localhost:8080/auth/google/callback</code></li>
+<li><strong>Setup in App:</strong>
+<ul>
+<li>Launch the app.</li>
+<li>If not configured, you will see a <strong>Setup Page</strong>.</li>
+<li>Enter your Client ID and Secret there, or paste your JSON credentials file.</li>
+<li><em>Alternatively</em>, edit the <code>.env</code> file directly:<pre><code class="env">GOOGLE_CLIENT_ID=your_id
+GOOGLE_CLIENT_SECRET=your_secret
+</code><button type="button">Copy</button></pre>
+
+</li>
+</ul>
+</li>
+</ol>
+<h3 id="ai-model" class="tsd-anchor-link">AI Model<a href="#ai-model" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3><p>The app uses a generative AI model. Ensure your API keys (if applicable for the chosen provider) are set in the <code>.env</code> file:</p>
+<pre><code class="env">GEMINI_API_KEY=your_api_key_here
+</code><button type="button">Copy</button></pre>
+
+<hr>
+<h2 id="💻-development" class="tsd-anchor-link">💻 Development<a href="#💻-development" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2><p>If you want to run the services locally without Docker for development:</p>
+<h3 id="backend" class="tsd-anchor-link">Backend<a href="#backend" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3><pre><code class="bash"><span class="hl-0">cd</span><span class="hl-1"> </span><span class="hl-2">server</span><br/><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">install</span><br/><span class="hl-3"># Ensure Redis is running locally on port 6379</span><br/><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">run</span><span class="hl-1"> </span><span class="hl-2">dev</span>
+</code><button type="button">Copy</button></pre>
+
+<p><em>Server runs on port 5000.</em></p>
+<h3 id="frontend" class="tsd-anchor-link">Frontend<a href="#frontend" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3><pre><code class="bash"><span class="hl-0">cd</span><span class="hl-1"> </span><span class="hl-2">client</span><br/><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">install</span><br/><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">start</span>
+</code><button type="button">Copy</button></pre>
+
+<p><em>Client runs on port 3000 (proxies API requests to port 5000).</em></p>
+<h3 id="testing" class="tsd-anchor-link">Testing<a href="#testing" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3><p>We have a comprehensive test suite including Unit, Integration, and E2E tests.</p>
+<p><strong>Run All Tests:</strong></p>
+<pre><code class="bash"><span class="hl-3"># Backend</span><br/><span class="hl-0">cd</span><span class="hl-1"> </span><span class="hl-2">server</span><span class="hl-1"> &amp;&amp; </span><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">test</span><br/><br/><span class="hl-3"># Frontend</span><br/><span class="hl-0">cd</span><span class="hl-1"> </span><span class="hl-2">client</span><span class="hl-1"> &amp;&amp; </span><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">test</span>
+</code><button type="button">Copy</button></pre>
+
+<hr>
+<h2 id="🤝-contributing" class="tsd-anchor-link">🤝 Contributing<a href="#🤝-contributing" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2><p>Ho ho ho! Contributions are welcome. Please fork the repository and submit a pull request.</p>
+<h2 id="📄-license" class="tsd-anchor-link">📄 License<a href="#📄-license" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2><p>This project is licensed under the MIT License - see the <a href="LICENSE">LICENSE</a> file for details.</p>
+</div></div><div class="col-sidebar"><div class="page-menu"><div class="tsd-navigation settings"><details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg><h3>Settings</h3></summary><div class="tsd-accordion-details"><div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span><ul id="tsd-filter-options"><li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li><li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li><li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></div><div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div><details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg><h3>On This Page</h3></summary><div class="tsd-accordion-details"><a href="#🎅-santas-elf-your-agentic-holiday-helper"><span>🎅 <wbr/>Santa&#39;s <wbr/>Elf -<wbr/> <wbr/>Your <wbr/>Agentic <wbr/>Holiday <wbr/>Helper</span></a><ul><li><a href="#✨-features"><span>✨ <wbr/>Features</span></a></li><li><a href="#🏗-architecture"><span>🏗 <wbr/>Architecture</span></a></li><li><a href="#🚀-quick-start"><span>🚀 <wbr/>Quick <wbr/>Start</span></a></li><li><ul><li><a href="#prerequisites"><span>Prerequisites</span></a></li><li><a href="#1-start-the-app"><span>1. <wbr/>Start the <wbr/>App</span></a></li><li><a href="#2-stop-the-app"><span>2. <wbr/>Stop the <wbr/>App</span></a></li><li><a href="#3-clean-reset"><span>3. <wbr/>Clean <wbr/>Reset</span></a></li><li><a href="#api-documentation-jsdoc"><span>API <wbr/>Documentation (<wbr/>JS<wbr/>Doc)</span></a></li></ul></li><li><a href="#⚙️-configuration"><span>⚙️ <wbr/>Configuration</span></a></li><li><ul><li><a href="#google-authentication-oauth-20"><span>Google <wbr/>Authentication (<wbr/>O<wbr/>Auth 2.0)</span></a></li><li><a href="#ai-model"><span>AI <wbr/>Model</span></a></li></ul></li><li><a href="#💻-development"><span>💻 <wbr/>Development</span></a></li><li><ul><li><a href="#backend"><span>Backend</span></a></li><li><a href="#frontend"><span>Frontend</span></a></li><li><a href="#testing"><span>Testing</span></a></li></ul></li><li><a href="#🤝-contributing"><span>🤝 <wbr/>Contributing</span></a></li><li><a href="#📄-license"><span>📄 <wbr/>License</span></a></li></ul></div></details></div><div class="site-menu"><nav class="tsd-navigation"><a href="modules.html">Santa&#39;s Elf API - v1.0.0</a><ul class="tsd-small-nested-navigation" id="tsd-nav-container"><li>Loading...</li></ul></nav></div></div></div><footer><p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer><div class="overlay"></div></body></html>

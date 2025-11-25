@@ -15,10 +15,10 @@
 - In `agent.ts`, when recipe/gift intents lack critical prefs (allergies/dislikes or recipient/interests/budget), respond with two labeled options (A/B) plus “C) Something else,” and pause tool calls.
 - Store the selected option into `preferences`.
 
-## Planner/Executor Loop [PARTIAL]
+## Planner/Executor Loop [COMPLETED]
 - **Implemented:** "Reasoning Loop" in `agent.ts` that checks context/history before acting.
-- **Pending:** Explicit persistent plan queue (Step 1, Step 2) in artifacts.
-- Add planner module to draft 3–5 steps per goal and persist in artifacts with status.
+- **Implemented:** Explicit persistent plan queue (`AgentPlan` with `PlanStep`s) in artifacts.
+- **Implemented:** `manage_plan` tool to create and update plan steps.
 - Executor runs steps in order, calls tools, marks status, emits progress messages; allow cancel/reset.
 
 ## Tool Enrichment & Guardrails [COMPLETED]
@@ -30,9 +30,9 @@
 ## Proactive Next Steps
 - After each step, suggest next action (e.g., “Generate shopping list?”) with quick chips; allow auto-advance on chip selection.
 
-## UI Surfaces [PENDING]
+## UI Surfaces [COMPLETED]
 - Plan/status panel showing steps and progress.
-- Preference chips (allergies, dislikes, diets, budgets, recipient) with inline edit.
+- **Implemented:** Preference chips (allergies, dislikes, diets, budgets, recipient) with inline edit in `PreferencesTab`.
 - Inline A/B clarification prompts in chat.
 
 ## Persistence & History

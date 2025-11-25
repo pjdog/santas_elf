@@ -4,7 +4,6 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import Link from '@mui/material/Link';
 
 const AdminLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<string>('');

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -7,6 +8,8 @@ import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Alert from '@mui/material/Alert';
+import IconButton from '@mui/material/IconButton';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const LLMSetup: React.FC = () => {
   const [provider, setProvider] = useState<string>('gemini');
@@ -15,6 +18,7 @@ const LLMSetup: React.FC = () => {
   const [baseUrl, setBaseUrl] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [severity, setSeverity] = useState<'success' | 'error' | 'info'>('info');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -92,7 +96,14 @@ const LLMSetup: React.FC = () => {
   };
 
   return (
-    <Box maxWidth="sm" sx={{ mx: 'auto' }}>
+    <Box maxWidth="sm" sx={{ mx: 'auto', position: 'relative' }}>
+      <IconButton 
+        onClick={() => navigate('/')} 
+        sx={{ position: 'absolute', left: 0, top: 0 }}
+        aria-label="back"
+      >
+        <ArrowBackIcon />
+      </IconButton>
       <Typography variant="h2" gutterBottom color="primary" textAlign="center">LLM Setup</Typography>
       
       <Paper sx={{ p: 4, borderRadius: 2, boxShadow: 3 }}>

@@ -55,6 +55,12 @@ const getArtifactsContext = async (userId: string, scenario: string, artifactsOv
         const todosList = Array.isArray(artifacts.todos) ? artifacts.todos : [];
         const seatingList = Array.isArray(artifacts.seating) ? artifacts.seating : [];
         const prefs = artifacts.preferences || INITIAL_ARTIFACTS.preferences;
+        const plan = artifacts.plan;
+
+        let planContext = "No active plan.";
+        if (plan) {
+            planContext = `Active Plan: "${plan.title}"\nSteps:\n${plan.steps.map(s => `- [${s.status.toUpperCase()}] ${s.description} (ID: ${s.id})`).join('\n')}`;
+        }
 
         return `
         Scenario: ${sanitizeScenario(scenario)}
@@ -64,6 +70,8 @@ const getArtifactsContext = async (userId: string, scenario: string, artifactsOv
         - Tables: ${seatingList.map((t: any) => `${t.name} (${t.guests.length}/${t.seats})`).join(', ') || 'None'}
         - Foundation Note: ${foundationNote?.content || 'Not captured yet'}
         
+        ${planContext}
+
         Known Preferences:
         - Dietary: Allergies [${prefs.dietary?.allergies?.join(', ')}], Dislikes [${prefs.dietary?.dislikes?.join(', ')}], Diets [${prefs.dietary?.diets?.join(', ')}]
         - Gifts: Recipient [${prefs.gifts?.recipientRelationship}], Interests [${prefs.gifts?.recipientInterests?.join(', ')}], Budget [$${prefs.gifts?.budgetMin}-$${prefs.gifts?.budgetMax}]
@@ -345,6 +353,7 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
         - "gift": Gift ideas. *REQUIREMENTS: User must have specified recipient/interests/budget in 'Known Preferences' or current prompt. If missing, use "clarify".*
         - "decoration": Decoration advice.
         - "manage": Add/remove tasks, update budget, manage seating/guests, OR **update preferences**.
+        - "plan": Create a new high-level plan OR update the status of a step.
         - "clarify": If the user asks for a complex task (recipe/gift) but is missing critical preferences (allergies, budget, etc.), OR if you need to choose between distinct options.
         - "social": Social sentiment.
         - "new_scenario": Switch event.
@@ -360,9 +369,15 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
           Example: {"action": "set_preferences", "data": {"dietary": {"allergies": ["nuts"]}}}
         - If the user answers a clarification question (e.g., "I want option A", "I like spicy"), use "manage" to update the relevant preference, then (optionally) suggest the next step in "reply".
 
+        INSTRUCTIONS FOR "plan":
+        - Use action "create_plan" to start a new plan. Data: { "title": "string", "steps": ["string", "string"] }
+        - Use action "update_step" to mark progress. Data: { "stepId": "string", "status": "pending"|"in_progress"|"completed"|"cancelled" }
+        - If the user says "start planning" or "make a plan", create one.
+        - If the user says "I'm done with step 1", update it.
+
         Return a JSON object with:
         {
-            "intent": "recipe" | "gift" | "decoration" | "manage" | "chat" | "new_scenario" | "clarify",
+            "intent": "recipe" | "gift" | "decoration" | "manage" | "plan" | "chat" | "new_scenario" | "clarify",
             "toolQuery": "search query OR JSON instruction for management",
             "reply": "Message to user"
         }
@@ -411,6 +426,15 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
                     artifactsUpdated = true;
                 } else {
                     parsed.reply = result.message || "I couldn't update the planner.";
+                }
+            } else if (type === 'plan') {
+                const result = await tools.manage_plan.function(parsed.toolQuery, { userId, scenario });
+                if (result.success) {
+                    parsed.reply = result.message;
+                    data = result.artifacts;
+                    artifactsUpdated = true;
+                } else {
+                    parsed.reply = result.message || "I couldn't update the plan.";
                 }
             } else if (type === 'social') {
                 data = await fetchSocialSuggestions(parsed.toolQuery || prompt || '');

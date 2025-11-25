@@ -46,11 +46,6 @@ const defaultDecorationPrefs: DecorationPrefs = {
   roomHint: '',
 };
 
-const extractNumber = (text: string): number | null => {
-  const match = text.match(/(\d+)/);
-  return match ? Number(match[1]) : null;
-};
-
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [recipePrefs, updateRecipePrefs] = useState<RecipePrefs>(defaultRecipePrefs);
   const [giftPrefs, updateGiftPrefs] = useState<GiftPrefs>(defaultGiftPrefs);

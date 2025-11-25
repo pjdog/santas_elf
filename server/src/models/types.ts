@@ -106,3 +106,15 @@ export interface Preferences {
     preferredColors: string[];
   };
 }
+
+export interface PlanStep {
+  id: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+}
+
+export interface AgentPlan {
+  id: string;
+  title: string;
+  steps: PlanStep[];
+}

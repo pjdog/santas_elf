@@ -7,7 +7,6 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Grid from '@mui/material/Grid';
-import Box from '@mui/material/Box';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
 import { ArtifactContext } from '../context/ArtifactContext';

@@ -300,6 +300,61 @@ export const tools: Record<string, { description: string, function: (input: stri
               return { success: false, message: "Failed to update planner." };
           }
       }
+  },
+  manage_plan: {
+      description: "Creates or updates the agent's high-level plan. Input should be a JSON string instruction.",
+      function: async (input: string, context?: { userId: string, scenario?: string }) => {
+          if (!context?.userId) return { success: false, message: "Error: No user context." };
+          const scenario = sanitizeScenario(context.scenario || 'default');
+          
+          try {
+              let instruction;
+              try {
+                  instruction = JSON.parse(input);
+              } catch (e) {
+                  return { success: false, message: "Error: Invalid instruction format. Expected JSON." };
+              }
+
+              const artifacts = await getArtifacts(context.userId, scenario);
+              let message = "Plan updated.";
+
+              // Actions: create_plan, update_step
+              if (instruction.action === 'create_plan') {
+                  // Expect data to have title and steps (array of strings)
+                  const steps = Array.isArray(instruction.data.steps) ? instruction.data.steps : [];
+                  artifacts.plan = {
+                      id: Date.now().toString(),
+                      title: instruction.data.title || "Holiday Plan",
+                      steps: steps.map((desc: string, idx: number) => ({
+                          id: `step-${idx + 1}`,
+                          description: desc,
+                          status: 'pending'
+                      }))
+                  };
+                  message = "Created new plan.";
+              } else if (instruction.action === 'update_step') {
+                  if (!artifacts.plan) return { success: false, message: "No plan exists to update." };
+                  // Expect data: { stepId: string, status: string }
+                  const step = artifacts.plan.steps.find(s => s.id === instruction.data.stepId);
+                  if (step) {
+                      if (['pending', 'in_progress', 'completed', 'cancelled'].includes(instruction.data.status)) {
+                          step.status = instruction.data.status;
+                          message = `Updated step ${step.id} to ${step.status}.`;
+                      }
+                  } else {
+                      message = "Step not found.";
+                  }
+              } else {
+                  return { success: false, message: "Invalid plan action." };
+              }
+
+              await saveArtifacts(context.userId, scenario, artifacts);
+              return { success: true, message, artifacts };
+          } catch (e: any) {
+              console.error("Manage plan error", e);
+              return { success: false, message: "Failed to update plan." };
+          }
+      }
   }
 };
 

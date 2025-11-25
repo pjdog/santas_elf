@@ -2,6 +2,7 @@ import request from 'supertest';
 import express from 'express';
 import artifactsRouter from '../routes/artifacts';
 import redisClient from '../config/db';
+import { persistArtifactsToDisk } from '../utils/artifactFs';
 
 // Mock Redis
 jest.mock('../config/db', () => ({
@@ -9,6 +10,11 @@ jest.mock('../config/db', () => ({
   set: jest.fn(),
   incr: jest.fn(),
   expire: jest.fn(),
+}));
+
+// Mock artifact FS persistence
+jest.mock('../utils/artifactFs', () => ({
+    persistArtifactsToDisk: jest.fn()
 }));
 
 const app = express();
@@ -104,6 +110,7 @@ describe('Artifact Routes', () => {
         'santas_elf:artifacts:test-user:default', 
         JSON.stringify(expectedSaved)
     );
+    expect(persistArtifactsToDisk).toHaveBeenCalledWith('test-user', 'default', expectedSaved);
   });
 
   it('POST /api/artifacts sanitizes input', async () => {
