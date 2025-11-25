@@ -59,7 +59,7 @@ describe('Agent Routes', () => {
     // Verify classification was called
     expect(generateContent).toHaveBeenCalledTimes(1);
     // Verify tool was called
-    expect(tools.find_recipe.function).toHaveBeenCalledWith("cookies");
+    expect(tools.find_recipe.function).toHaveBeenCalledWith("cookies", expect.objectContaining({ scenario: "default" }));
   });
 
   it('POST /api/agent/chat handles gift request', async () => {
@@ -79,7 +79,7 @@ describe('Agent Routes', () => {
     expect(res.status).toBe(200);
     expect(res.body.type).toBe('gift');
     expect(res.body.data).toEqual(mockGifts);
-    expect(tools.find_gift.function).toHaveBeenCalledWith("Gift for child");
+    expect(tools.find_gift.function).toHaveBeenCalledWith("Gift for child", expect.objectContaining({ scenario: "default" }));
   });
 
   it('POST /api/agent/chat handles decoration request', async () => {
@@ -99,7 +99,7 @@ describe('Agent Routes', () => {
     expect(res.status).toBe(200);
     expect(res.body.type).toBe('decoration');
     expect(res.body.data).toBe(mockDecoration);
-    expect(tools.get_decoration_suggestions.function).toHaveBeenCalledWith("How to decorate?");
+    expect(tools.get_decoration_suggestions.function).toHaveBeenCalledWith("How to decorate?", expect.objectContaining({ scenario: "default" }));
   });
 
   it('POST /api/agent/chat handles generic chat', async () => {

@@ -3,6 +3,7 @@ import redisClient from './config/db';
 import { generateContent } from './utils/llm';
 import { SavedArtifacts, INITIAL_ARTIFACTS } from './routes/artifacts';
 import { sanitizeScenario } from './utils/scenario';
+import { persistArtifactsToDisk } from './utils/artifactFs';
 
 /**
  * Helper to fetch current artifacts for a user
@@ -15,6 +16,11 @@ const getArtifacts = async (userId: string, scenario = 'default'): Promise<Saved
     if (!artifacts.budget) artifacts.budget = { limit: 0 };
     if (!artifacts.decorations) artifacts.decorations = [];
     if (!artifacts.agentNotes) artifacts.agentNotes = [];
+    if (!artifacts.preferences) artifacts.preferences = {
+        dietary: { allergies: [], dislikes: [], diets: [] },
+        gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
+        decorations: { room: "", style: "", preferredColors: [] }
+    };
     return artifacts;
 };
 
@@ -24,6 +30,7 @@ const getArtifacts = async (userId: string, scenario = 'default'): Promise<Saved
 const saveArtifacts = async (userId: string, scenario: string, data: SavedArtifacts) => {
     const key = `santas_elf:artifacts:${userId}:${sanitizeScenario(scenario)}`;
     await redisClient.set(key, JSON.stringify(data));
+    persistArtifactsToDisk(userId, scenario, data);
 };
 
 /**
@@ -33,7 +40,21 @@ const saveArtifacts = async (userId: string, scenario: string, data: SavedArtifa
 export const tools: Record<string, { description: string, function: (input: string, context?: { userId: string, scenario?: string }) => Promise<any> }> = {
   find_recipe: {
     description: "Searches for recipes based on a query.",
-    function: async (query: string) => {
+    function: async (query: string, context?: { userId: string, scenario?: string }) => {
+      let preferencesPrompt = "";
+      if (context?.userId) {
+          const artifacts = await getArtifacts(context.userId, context.scenario);
+          const dietary = artifacts.preferences?.dietary;
+          if (dietary) {
+              const allergies = dietary.allergies.join(', ');
+              const dislikes = dietary.dislikes.join(', ');
+              const diets = dietary.diets.join(', ');
+              if (allergies) preferencesPrompt += `\nCRITICAL: Exclude ingredients causing allergies: ${allergies}.`;
+              if (dislikes) preferencesPrompt += `\nAvoid ingredients: ${dislikes}.`;
+              if (diets) preferencesPrompt += `\nAdhere to diets: ${diets}.`;
+          }
+      }
+
       const normalizeMealDBRecipe = (meal: any) => {
         const ingredients = [];
         for (let i = 1; i <= 20; i++) {
@@ -67,7 +88,9 @@ export const tools: Record<string, { description: string, function: (input: stri
 
       try {
         const prompt = `Find or generate a recipe for "${query}". 
-        Prioritize styles or well-known recipes from sources like NYT Cooking, America's Test Kitchen, or Bon Appétit.
+        Prioritize styles or well-known recipes from sources like NYT Cooking, America's Test Kitchen, Bon Appétit, and Food & Wine (trending, modern spins are great).
+        ${preferencesPrompt}
+        If the query mentions allergies or dislikes, avoid those ingredients and note the avoidance in the description.
         Provide the recipe name, a brief description, a list of ingredients (with quantities), and step-by-step instructions.
         Format the output as a valid JSON object with the following structure:
         {
@@ -103,9 +126,22 @@ export const tools: Record<string, { description: string, function: (input: stri
   },
   find_gift: {
     description: "Provides gift ideas.",
-    function: async (query: string) => {
+    function: async (query: string, context?: { userId: string, scenario?: string }) => {
+      let preferencesPrompt = "";
+      if (context?.userId) {
+          const artifacts = await getArtifacts(context.userId, context.scenario);
+          const gifts = artifacts.preferences?.gifts;
+          if (gifts) {
+              if (gifts.recipientInterests.length > 0) preferencesPrompt += `\nRecipient interests: ${gifts.recipientInterests.join(', ')}.`;
+              if (gifts.recipientRelationship) preferencesPrompt += `\nRelationship: ${gifts.recipientRelationship}.`;
+              if (gifts.budgetMin > 0 || gifts.budgetMax > 0) preferencesPrompt += `\nBudget range: $${gifts.budgetMin} - $${gifts.budgetMax}.`;
+              if (gifts.dislikes.length > 0) preferencesPrompt += `\nAvoid gifts related to: ${gifts.dislikes.join(', ')}.`;
+          }
+      }
+
       try {
         const prompt = `Suggest 3 unique gift ideas for: "${query}". 
+        ${preferencesPrompt}
         Format the output as a valid JSON array of objects:
         [
           {
@@ -126,9 +162,22 @@ export const tools: Record<string, { description: string, function: (input: stri
   },
   get_decoration_suggestions: {
     description: "Provides decoration suggestions.",
-    function: async (query: string) => {
+    function: async (query: string, context?: { userId: string, scenario?: string }) => {
+       let preferencesPrompt = "";
+       if (context?.userId) {
+           const artifacts = await getArtifacts(context.userId, context.scenario);
+           const decorations = artifacts.preferences?.decorations;
+           if (decorations) {
+               if (decorations.style) preferencesPrompt += `\nPreferred Style: ${decorations.style}.`;
+               if (decorations.preferredColors.length > 0) preferencesPrompt += `\nColor Palette: ${decorations.preferredColors.join(', ')}.`;
+               if (decorations.room) preferencesPrompt += `\nFocus Room: ${decorations.room}.`;
+           }
+       }
+
        try {
-        const prompt = `Suggest 3 festive decoration themes for: "${query}". List specific items.`;
+        const prompt = `Suggest 3 festive decoration themes for: "${query}". 
+        ${preferencesPrompt}
+        List specific items.`;
         const text = await generateContent(prompt);
         return text;
       } catch (error: any) {
@@ -199,10 +248,48 @@ export const tools: Record<string, { description: string, function: (input: stri
                           message = "Please specify a table name.";
                       }
                       break;
+                  case 'set_features':
+                      if (Array.isArray(instruction.data)) {
+                          artifacts.features = instruction.data;
+                          message = `Updated planner features: ${instruction.data.join(', ')}`;
+                      } else {
+                          message = "Error: Features must be a list.";
+                      }
+                      break;
+                  case 'set_preferences':
+                      // Expect data to be a partial Preferences object
+                      if (typeof instruction.data === 'object') {
+                          const newPrefs = instruction.data;
+                          if (!artifacts.preferences) artifacts.preferences = INITIAL_ARTIFACTS.preferences;
+                          
+                          // Deep merge logic (simplified)
+                          if (newPrefs.dietary) {
+                              if (newPrefs.dietary.allergies) artifacts.preferences.dietary.allergies = [...new Set([...artifacts.preferences.dietary.allergies, ...newPrefs.dietary.allergies])];
+                              if (newPrefs.dietary.dislikes) artifacts.preferences.dietary.dislikes = [...new Set([...artifacts.preferences.dietary.dislikes, ...newPrefs.dietary.dislikes])];
+                              if (newPrefs.dietary.diets) artifacts.preferences.dietary.diets = [...new Set([...artifacts.preferences.dietary.diets, ...newPrefs.dietary.diets])];
+                          }
+                          if (newPrefs.gifts) {
+                              if (newPrefs.gifts.recipientRelationship) artifacts.preferences.gifts.recipientRelationship = newPrefs.gifts.recipientRelationship;
+                              if (newPrefs.gifts.recipientAge) artifacts.preferences.gifts.recipientAge = newPrefs.gifts.recipientAge;
+                              if (newPrefs.gifts.recipientInterests) artifacts.preferences.gifts.recipientInterests = [...new Set([...artifacts.preferences.gifts.recipientInterests, ...newPrefs.gifts.recipientInterests])];
+                              if (newPrefs.gifts.budgetMin) artifacts.preferences.gifts.budgetMin = newPrefs.gifts.budgetMin;
+                              if (newPrefs.gifts.budgetMax) artifacts.preferences.gifts.budgetMax = newPrefs.gifts.budgetMax;
+                              if (newPrefs.gifts.dislikes) artifacts.preferences.gifts.dislikes = [...new Set([...artifacts.preferences.gifts.dislikes, ...newPrefs.gifts.dislikes])];
+                          }
+                          if (newPrefs.decorations) {
+                              if (newPrefs.decorations.room) artifacts.preferences.decorations.room = newPrefs.decorations.room;
+                              if (newPrefs.decorations.style) artifacts.preferences.decorations.style = newPrefs.decorations.style;
+                              if (newPrefs.decorations.preferredColors) artifacts.preferences.decorations.preferredColors = [...new Set([...artifacts.preferences.decorations.preferredColors, ...newPrefs.decorations.preferredColors])];
+                          }
+                          message = "Updated preferences.";
+                      } else {
+                          message = "Error: Invalid preference data.";
+                      }
+                      break;
                   default:
                       return { 
                           success: false, 
-                          message: `I'm not sure how to do that. Valid actions are: add_todo, remove_todo, set_budget, add_table, add_guest.` 
+                          message: `I'm not sure how to do that. Valid actions are: add_todo, remove_todo, set_budget, add_table, add_guest, set_features, set_preferences.` 
                       };
               }
 

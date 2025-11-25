@@ -82,3 +82,27 @@ export interface AgentNote {
   content?: string;
   tableRows?: string[][];
 }
+
+/**
+ * User preferences for personalization.
+ */
+export interface Preferences {
+  dietary: {
+    allergies: string[];
+    dislikes: string[];
+    diets: string[]; // e.g. "Vegan", "Keto"
+  };
+  gifts: {
+    recipientRelationship: string; // e.g. "Mother", "Colleague"
+    recipientAge: number | null;
+    recipientInterests: string[];
+    budgetMin: number;
+    budgetMax: number;
+    dislikes: string[];
+  };
+  decorations: {
+    room: string;
+    style: string; // e.g. "Modern", "Rustic"
+    preferredColors: string[];
+  };
+}

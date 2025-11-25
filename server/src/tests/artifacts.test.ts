@@ -39,7 +39,13 @@ describe('Artifact Routes', () => {
         decorations: [],
         seating: [],
         budget: { limit: 0 },
-        agentNotes: []
+        agentNotes: [],
+        features: ['recipes', 'gifts', 'decorations'],
+        preferences: {
+            dietary: { allergies: [], dislikes: [], diets: [] },
+            gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
+            decorations: { room: "", style: "", preferredColors: [] }
+        }
     });
   });
 
@@ -50,7 +56,13 @@ describe('Artifact Routes', () => {
         gifts: [],
         decorations: [],
         seating: [],
-        budget: { limit: 100 }
+        budget: { limit: 100 },
+        features: ['recipes'],
+        preferences: {
+            dietary: { allergies: [], dislikes: [], diets: [] },
+            gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
+            decorations: { room: "", style: "", preferredColors: [] }
+        }
     };
     (redisClient.get as jest.Mock).mockResolvedValue(JSON.stringify(mockData));
 
@@ -68,7 +80,8 @@ describe('Artifact Routes', () => {
         decorations: [],
         seating: [],
         budget: { limit: 500 },
-        agentNotes: []
+        agentNotes: [],
+        features: ['recipes', 'gifts']
     };
 
     const res = await request(app)
@@ -76,9 +89,20 @@ describe('Artifact Routes', () => {
         .send(newData);
 
     expect(res.status).toBe(200);
+    
+    // We expect the saved data to include the preferences structure now
+    const expectedSaved = {
+        ...newData,
+        preferences: {
+            dietary: { allergies: [], dislikes: [], diets: [] },
+            gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
+            decorations: { room: "", style: "", preferredColors: [] }
+        }
+    };
+
     expect(redisClient.set).toHaveBeenCalledWith(
         'santas_elf:artifacts:test-user:default', 
-        JSON.stringify(newData)
+        JSON.stringify(expectedSaved)
     );
   });
 

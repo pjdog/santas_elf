@@ -1,7 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import redisClient from '../config/db';
-import { AgentNote } from '../models/types';
+import { AgentNote, Preferences } from '../models/types';
 import { sanitizeScenario } from '../utils/scenario';
+import { persistArtifactsToDisk } from '../utils/artifactFs';
 
 const router = Router();
 
@@ -33,6 +34,8 @@ export interface SavedArtifacts {
   seating: Table[];
   budget: Budget;
   agentNotes: AgentNote[];
+  features: string[];
+  preferences: Preferences;
 }
 
 export const INITIAL_ARTIFACTS: SavedArtifacts = {
@@ -42,7 +45,13 @@ export const INITIAL_ARTIFACTS: SavedArtifacts = {
   decorations: [],
   seating: [],
   budget: { limit: 0 },
-  agentNotes: []
+  agentNotes: [],
+  features: ['recipes', 'gifts', 'decorations'],
+  preferences: {
+      dietary: { allergies: [], dislikes: [], diets: [] },
+      gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
+      decorations: { room: "", style: "", preferredColors: [] }
+  }
 };
 
 const rateLimit = async (req: Request, res: Response, next: NextFunction) => {
@@ -187,9 +196,56 @@ const validateArtifacts = (data: any): { valid: boolean; cleaned?: SavedArtifact
         }
     }
 
+    const features: string[] = [];
+    if (Array.isArray(data.features)) {
+        if (data.features.length > 10) return { valid: false };
+        for (const item of data.features) {
+            if (typeof item === 'string' && item.length < 50) {
+                features.push(item.replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+            }
+        }
+    } else if (!data.features) {
+        // Allow missing features field to pass validation and be defaulted later
+    }
+
+    // Preferences Validation
+    const preferences: Preferences = JSON.parse(JSON.stringify(INITIAL_ARTIFACTS.preferences));
+    if (data.preferences && typeof data.preferences === 'object') {
+        const p = data.preferences;
+        
+        // Dietary
+        if (p.dietary) {
+            if (Array.isArray(p.dietary.allergies)) preferences.dietary.allergies = p.dietary.allergies.filter((s: any) => typeof s === 'string').slice(0, 20);
+            if (Array.isArray(p.dietary.dislikes)) preferences.dietary.dislikes = p.dietary.dislikes.filter((s: any) => typeof s === 'string').slice(0, 20);
+            if (Array.isArray(p.dietary.diets)) preferences.dietary.diets = p.dietary.diets.filter((s: any) => typeof s === 'string').slice(0, 10);
+        }
+
+        // Gifts
+        if (p.gifts) {
+            if (typeof p.gifts.recipientRelationship === 'string') preferences.gifts.recipientRelationship = p.gifts.recipientRelationship.substring(0, 50);
+            if (typeof p.gifts.recipientAge === 'number' || p.gifts.recipientAge === null) preferences.gifts.recipientAge = p.gifts.recipientAge;
+            if (Array.isArray(p.gifts.recipientInterests)) preferences.gifts.recipientInterests = p.gifts.recipientInterests.filter((s: any) => typeof s === 'string').slice(0, 20);
+            if (typeof p.gifts.budgetMin === 'number') preferences.gifts.budgetMin = Math.max(0, p.gifts.budgetMin);
+            if (typeof p.gifts.budgetMax === 'number') preferences.gifts.budgetMax = Math.max(0, p.gifts.budgetMax);
+            if (Array.isArray(p.gifts.dislikes)) preferences.gifts.dislikes = p.gifts.dislikes.filter((s: any) => typeof s === 'string').slice(0, 20);
+        }
+
+        // Decorations
+        if (p.decorations) {
+            if (typeof p.decorations.room === 'string') preferences.decorations.room = p.decorations.room.substring(0, 50);
+            if (typeof p.decorations.style === 'string') preferences.decorations.style = p.decorations.style.substring(0, 50);
+            if (Array.isArray(p.decorations.preferredColors)) preferences.decorations.preferredColors = p.decorations.preferredColors.filter((s: any) => typeof s === 'string').slice(0, 10);
+        }
+    }
+
+
     return { 
         valid: true, 
-        cleaned: { todos, recipes, gifts, decorations, seating, budget, agentNotes } 
+        cleaned: { 
+            todos, recipes, gifts, decorations, seating, budget, agentNotes,
+            features: features.length > 0 ? features : (data.features ? [] : ['recipes', 'gifts', 'decorations']),
+            preferences
+        } 
     };
 };
 
@@ -208,6 +264,8 @@ router.get('/', async (req, res) => {
     if (!artifacts.budget) artifacts.budget = { limit: 0 };
     if (!artifacts.decorations) artifacts.decorations = []; // Ensure migration from prev step too
     if (!artifacts.agentNotes) artifacts.agentNotes = [];
+    if (!artifacts.features) artifacts.features = ['recipes', 'gifts', 'decorations'];
+    if (!artifacts.preferences) artifacts.preferences = JSON.parse(JSON.stringify(INITIAL_ARTIFACTS.preferences));
 
     res.json(artifacts);
   } catch (error) {
@@ -230,6 +288,8 @@ router.post('/', rateLimit, async (req, res) => {
 
   try {
     await redisClient.set(`santas_elf:artifacts:${userId}:${scenario}`, JSON.stringify(cleaned));
+    // Best-effort export to disk for CLI/debugging; scenario drives folder name
+    persistArtifactsToDisk(userId, scenario, cleaned);
     res.json(cleaned);
   } catch (error) {
     console.error('Error saving artifacts:', error);

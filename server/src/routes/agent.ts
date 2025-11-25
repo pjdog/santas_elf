@@ -25,8 +25,24 @@ const loadArtifacts = async (userId: string, scenario: string): Promise<SavedArt
         decorations: Array.isArray(artifacts?.decorations) ? artifacts.decorations : [],
         seating: Array.isArray(artifacts?.seating) ? artifacts.seating : [],
         budget: artifacts?.budget || { limit: 0 },
-        agentNotes: Array.isArray(artifacts?.agentNotes) ? artifacts.agentNotes : []
+        agentNotes: Array.isArray(artifacts?.agentNotes) ? artifacts.agentNotes : [],
+        preferences: artifacts?.preferences || INITIAL_ARTIFACTS.preferences
     };
+};
+
+const getChatHistory = async (userId: string, scenario: string, limit = 5): Promise<string> => {
+    try {
+        const key = `chat:${userId}:${sanitizeScenario(scenario)}`;
+        const rawMessages = await redisClient.lRange(key, -limit, -1);
+        return rawMessages.map(m => {
+            try {
+                const parsed = JSON.parse(m);
+                return `${parsed.sender === 'user' ? 'User' : 'Assistant'}: ${parsed.text}`;
+            } catch(e) { return ""; }
+        }).join('\n');
+    } catch (e) {
+        return "";
+    }
 };
 
 /**
@@ -38,6 +54,8 @@ const getArtifactsContext = async (userId: string, scenario: string, artifactsOv
         const foundationNote = artifacts.agentNotes.find((note: any) => note.id === `foundation-${sanitizeScenario(scenario)}`);
         const todosList = Array.isArray(artifacts.todos) ? artifacts.todos : [];
         const seatingList = Array.isArray(artifacts.seating) ? artifacts.seating : [];
+        const prefs = artifacts.preferences || INITIAL_ARTIFACTS.preferences;
+
         return `
         Scenario: ${sanitizeScenario(scenario)}
         Current Planner State:
@@ -45,6 +63,11 @@ const getArtifactsContext = async (userId: string, scenario: string, artifactsOv
         - Budget Limit: $${artifacts.budget?.limit || 0}
         - Tables: ${seatingList.map((t: any) => `${t.name} (${t.guests.length}/${t.seats})`).join(', ') || 'None'}
         - Foundation Note: ${foundationNote?.content || 'Not captured yet'}
+        
+        Known Preferences:
+        - Dietary: Allergies [${prefs.dietary?.allergies?.join(', ')}], Dislikes [${prefs.dietary?.dislikes?.join(', ')}], Diets [${prefs.dietary?.diets?.join(', ')}]
+        - Gifts: Recipient [${prefs.gifts?.recipientRelationship}], Interests [${prefs.gifts?.recipientInterests?.join(', ')}], Budget [$${prefs.gifts?.budgetMin}-$${prefs.gifts?.budgetMax}]
+        - Decorations: Style [${prefs.decorations?.style}], Colors [${prefs.decorations?.preferredColors?.join(', ')}]
         `;
     } catch (e) {
         return "";
@@ -66,6 +89,8 @@ const ensureFoundationNotes = async (userId: string, scenario: string, prompt: s
         Most recent user message: "${prompt}"
 
         Infer what the user is planning for (occasion), key people involved, and whether the plan needs gifts, dinner/food, or a seating chart.
+        Also determine which planner features are needed based on the request: "recipes", "gifts", "decorations", "seating".
+        Suggest 3-5 initial high-level to-do items for this event.
         Return JSON ONLY:
         {
             "occasion": "string",
@@ -73,9 +98,12 @@ const ensureFoundationNotes = async (userId: string, scenario: string, prompt: s
             "needsGifts": boolean,
             "needsDinner": boolean,
             "needsSeating": boolean,
+            "features": ["recipes", "gifts", "decorations", "seating"],
+            "todos": ["task 1", "task 2", ...],
             "tone": "cozy / formal / party / family / other",
             "notes": "one or two short sentences",
-            "priorities": ["short bullet priorities"]
+            "priorities": ["short bullet priorities"],
+            "funFact": "A quick, interesting 1-sentence fun fact or tradition related to this specific occasion (search your knowledge base)."
         }`;
         const text = await generateContent(llmPrompt);
         const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -87,9 +115,12 @@ const ensureFoundationNotes = async (userId: string, scenario: string, prompt: s
             needsGifts: true,
             needsDinner: true,
             needsSeating: false,
+            features: ['recipes', 'gifts', 'decorations'],
+            todos: [],
             tone: 'festive',
             notes: 'Foundation details pending more info from the user.',
-            priorities: []
+            priorities: [],
+            funFact: "Did you know? The tradition of holiday planning dates back centuries!"
         };
     }
 
@@ -114,6 +145,9 @@ const ensureFoundationNotes = async (userId: string, scenario: string, prompt: s
     ];
 
     const updatedNotes = [...current.agentNotes];
+    let addedFoundation = false;
+    const newTodos = [...current.todos];
+
     if (!hasFoundation) {
         updatedNotes.unshift({
             id: `foundation-${scenarioKey}`,
@@ -121,6 +155,20 @@ const ensureFoundationNotes = async (userId: string, scenario: string, prompt: s
             type: 'text',
             content: foundationContent.substring(0, 5000)
         });
+        
+        // Add generated todos if this is a fresh start
+        if (Array.isArray(parsed.todos) && parsed.todos.length > 0) {
+            parsed.todos.forEach((t: string) => {
+                if (typeof t === 'string') {
+                    newTodos.push({
+                        id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                        text: t,
+                        completed: false
+                    });
+                }
+            });
+        }
+        addedFoundation = true;
     }
     if (!hasProfile) {
         updatedNotes.unshift({
@@ -131,10 +179,25 @@ const ensureFoundationNotes = async (userId: string, scenario: string, prompt: s
         });
     }
 
+    // Only update features if we are creating the foundation (first run)
+    const features = (addedFoundation && Array.isArray(parsed.features)) ? parsed.features : current.features;
+
     const updatedArtifacts: SavedArtifacts = {
         ...current,
-        agentNotes: updatedNotes.slice(0, 20) // respect validation limit
+        todos: newTodos,
+        agentNotes: updatedNotes.slice(0, 20), // respect validation limit
+        features: features || ['recipes', 'gifts', 'decorations']
     };
+    
+    // Hack: Attach funFact and todos to the object temporarily so we can grab it in the main route
+    // @ts-ignore
+    if (addedFoundation) {
+        // @ts-ignore
+        updatedArtifacts.tempFunFact = parsed.funFact;
+        // @ts-ignore
+        updatedArtifacts.tempGeneratedTodos = parsed.todos;
+    }
+
     const key = `santas_elf:artifacts:${userId}:${scenarioKey}`;
     await redisClient.set(key, JSON.stringify(updatedArtifacts));
     return updatedArtifacts;
@@ -153,6 +216,8 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
     const scenario = sanitizeScenario((req.query.scenario as string) || (req.body?.scenario as string));
     let artifactsUpdatedFlag = false;
     let artifactsForScenario: SavedArtifacts | null = null;
+    let funFact: string | undefined;
+    let generatedTodos: string[] | undefined;
 
     if (userId) {
         try {
@@ -160,6 +225,21 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
             if (prompt) {
                 const beforeNotes = artifactsForScenario?.agentNotes?.length || 0;
                 artifactsForScenario = await ensureFoundationNotes(userId, scenario, prompt, artifactsForScenario);
+                // @ts-ignore
+                if (artifactsForScenario.tempFunFact) {
+                    // @ts-ignore
+                    funFact = artifactsForScenario.tempFunFact;
+                    // @ts-ignore
+                    delete artifactsForScenario.tempFunFact;
+                }
+                // @ts-ignore
+                if (artifactsForScenario.tempGeneratedTodos) {
+                    // @ts-ignore
+                    generatedTodos = artifactsForScenario.tempGeneratedTodos;
+                    // @ts-ignore
+                    delete artifactsForScenario.tempGeneratedTodos;
+                }
+
                 if ((artifactsForScenario?.agentNotes?.length || 0) > beforeNotes) {
                     artifactsUpdatedFlag = true;
                 }
@@ -228,8 +308,10 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
 
         // 1. Intent Recognition (Text Only)
         const contextInfo = userId ? await getArtifactsContext(userId, scenario, artifactsForScenario || undefined) : "";
+        const history = userId ? await getChatHistory(userId, scenario) : "";
         const lower = (prompt || '').toLowerCase();
-        // Shortcut: if user explicitly asks for social sentiment
+
+        // Shortcut: social sentiment
         if (lower.includes('reddit') || lower.includes('social') || lower.includes('people are saying')) {
             try {
                 const posts = await fetchSocialSuggestions(prompt);
@@ -244,41 +326,46 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
         }
         
         const classificationPrompt = `
-        You are Santa's Elf, a holiday assistant.
+        You are Santa's Elf, a smart, proactive holiday assistant.
         Scenario: ${scenario}
+        
+        RECENT HISTORY:
+        ${history}
+
+        CURRENT CONTEXT & PREFERENCES:
         ${contextInfo}
         
         User says: "${prompt}"
         
-        Determine the user's intent:
-        - "recipe": if they want to find or cook food.
-        - "gift": if they want gift ideas.
-        - "decoration": if they want decoration advice (text-based only here).
-        - "manage": if they want to add/remove tasks, update budget, or manage seating/guests.
-        - "social": if they ask for what people are saying online (reddit/social sentiment).
-        - "new_scenario": if they explicitly want to start planning a different event (e.g., "let's plan for Thanksgiving instead", "switch to birthday party").
-        - "commerce": if they want to buy/order/checkout/pay (amazon, paypal, checkout links).
-        - "chat": for general conversation or if you need more information to perform a "manage" action.
-        If the request is missing foundation details (occasion, people involved, whether gifts/dinner/seating are needed), prefer "chat" with a short clarifying question to capture them.
+        YOUR GOAL:
+        Determine the best course of action. You can execute tools, ask for clarification, or chat.
+
+        INTENTS:
+        - "recipe": Find/cook food. *REQUIREMENTS: User must have specified allergies/dislikes in 'Known Preferences' or current prompt. If missing, use "clarify".*
+        - "gift": Gift ideas. *REQUIREMENTS: User must have specified recipient/interests/budget in 'Known Preferences' or current prompt. If missing, use "clarify".*
+        - "decoration": Decoration advice.
+        - "manage": Add/remove tasks, update budget, manage seating/guests, OR **update preferences**.
+        - "clarify": If the user asks for a complex task (recipe/gift) but is missing critical preferences (allergies, budget, etc.), OR if you need to choose between distinct options.
+        - "social": Social sentiment.
+        - "new_scenario": Switch event.
+        - "chat": General conversation.
+
+        INSTRUCTIONS FOR "clarify":
+        - If missing info, present 2 distinct options (A/B) to guide the user + "C) Something else". 
+        - Example: "To find the best recipe, do you prefer: A) Traditional & Rich, or B) Modern & Light?"
+        - Output "reply" with the question and options.
+
+        INSTRUCTIONS FOR "manage":
+        - You can update PREFERENCES using action "set_preferences".
+          Example: {"action": "set_preferences", "data": {"dietary": {"allergies": ["nuts"]}}}
+        - If the user answers a clarification question (e.g., "I want option A", "I like spicy"), use "manage" to update the relevant preference, then (optionally) suggest the next step in "reply".
 
         Return a JSON object with:
         {
-            "intent": "recipe" | "gift" | "decoration" | "manage" | "chat" | "new_scenario",
-            "toolQuery": "extracted search query for the tool OR JSON instruction for management OR scenario slug",
-            "reply": "A friendly message to display before the result (optional)"
+            "intent": "recipe" | "gift" | "decoration" | "manage" | "chat" | "new_scenario" | "clarify",
+            "toolQuery": "search query OR JSON instruction for management",
+            "reply": "Message to user"
         }
-        
-        For "toolQuery":
-        - If intent is recipe, extract the dish name.
-        - If intent is gift, extract the description of the recipient/interests.
-        - If intent is decoration, extract the room description.
-        - If intent is new_scenario, extract a short, hyphenated slug for the new scenario name (e.g., "thanksgiving-dinner").
-        - If intent is manage, provide a JSON string with action: "add_todo"|"remove_todo"|"set_budget"|"add_table"|"add_guest" and data. 
-          Example: {"action": "add_todo", "data": "Buy milk"}
-          Example: {"action": "add_table", "data": {"name": "Kids", "seats": 4}}
-          Example: {"action": "add_guest", "data": {"guest": "Tim", "table": "Kids"}}
-          
-          IMPORTANT: If the user request for 'manage' is vague (e.g., "update budget" without a number), set intent to "chat" and ask for clarification in "reply".
         
         Return ONLY JSON.
         `;
@@ -293,6 +380,17 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
             parsed = { intent: 'chat', reply: text };
         }
 
+        // Inject fun fact and todos if we just established the foundation
+        if (funFact) {
+             const prettyName = scenario.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+             parsed.reply = (parsed.reply || `Alright, let's plan ${prettyName}!`) + `\n\n💡 **Fun Fact:** ${funFact}`;
+        }
+        
+        if (generatedTodos && generatedTodos.length > 0) {
+            const todoList = generatedTodos.map(t => `- ${t}`).join('\n');
+            parsed.reply = (parsed.reply || "") + `\n\nI've added a few initial tasks to get you started:\n${todoList}\n\nDoes this look right? If so, we can move on to the guest list.`;
+        }
+
         let data = null;
         let type = parsed.intent;
         let artifactsUpdated = artifactsUpdatedFlag;
@@ -300,24 +398,27 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
         // 2. Tool Execution
         try {
             if (type === 'recipe') {
-                data = await tools.find_recipe.function(parsed.toolQuery);
+                data = await tools.find_recipe.function(parsed.toolQuery, { userId, scenario });
             } else if (type === 'gift') {
-                data = await tools.find_gift.function(parsed.toolQuery);
+                data = await tools.find_gift.function(parsed.toolQuery, { userId, scenario });
             } else if (type === 'decoration') {
-                data = await tools.get_decoration_suggestions.function(parsed.toolQuery);
+                data = await tools.get_decoration_suggestions.function(parsed.toolQuery, { userId, scenario });
             } else if (type === 'manage') {
                 const result = await tools.manage_planner.function(parsed.toolQuery, { userId, scenario });
                 if (result.success) {
                     parsed.reply = result.message;
-                    data = result.artifacts; // Send back updated state if useful
+                    data = result.artifacts; 
                     artifactsUpdated = true;
                 } else {
                     parsed.reply = result.message || "I couldn't update the planner.";
                 }
             } else if (type === 'social') {
                 data = await fetchSocialSuggestions(parsed.toolQuery || prompt || '');
+            } else if (type === 'clarify') {
+                // Just return the question; no tool execution needed yet.
+                // We might want to mark this as a specific UI type in the future, but 'text' or 'chat' is fine for now.
+                type = 'chat'; 
             } else if (type === 'new_scenario') {
-                // Special handling for switching scenarios
                 return res.json({
                     type: 'switch_scenario',
                     message: parsed.reply || `Switching to ${parsed.toolQuery}...`,
