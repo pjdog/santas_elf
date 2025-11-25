@@ -6,12 +6,14 @@ import { persistArtifactsToDisk } from '../utils/artifactFs';
 
 const router = Router();
 
+/** Represents a single task in the todo list. */
 export interface TodoItem {
   id: string;
   text: string;
   completed: boolean;
 }
 
+/** Represents a dining table configuration. */
 export interface Table {
     id: string;
     name: string;
@@ -19,13 +21,15 @@ export interface Table {
     guests: string[];
 }
 
+/** Represents the budget settings. */
 export interface Budget {
     limit: number;
-    // 'current' is typically derived from gifts, but we can store a manual override or cached value if needed.
-    // For now, let's calculate it on the fly or let the frontend calculate it.
-    // We'll just store the limit.
 }
 
+/** 
+ * Complete state object for a user's scenario.
+ * Persisted in Redis and on disk.
+ */
 export interface SavedArtifacts {
   todos: TodoItem[];
   recipes: any[]; 
@@ -39,6 +43,7 @@ export interface SavedArtifacts {
   plan: AgentPlan | null;
 }
 
+/** Default initial state for new scenarios. */
 export const INITIAL_ARTIFACTS: SavedArtifacts = {
   todos: [],
   recipes: [],
@@ -56,6 +61,10 @@ export const INITIAL_ARTIFACTS: SavedArtifacts = {
   plan: null
 };
 
+/** 
+ * Middleware to rate limit artifact updates per user.
+ * Prevents spamming the persistence layer.
+ */
 const rateLimit = async (req: Request, res: Response, next: NextFunction) => {
     // @ts-ignore
     const userId = req.user?.id;
@@ -77,6 +86,13 @@ const rateLimit = async (req: Request, res: Response, next: NextFunction) => {
     }
 };
 
+/**
+ * Validates and sanitizes artifact data before saving.
+ * Ensures data integrity and prevents excessive payload sizes.
+ * 
+ * @param data - The raw input data.
+ * @returns An object containing validity status and cleaned data.
+ */
 const validateArtifacts = (data: any): { valid: boolean; cleaned?: SavedArtifacts } => {
     if (!data || typeof data !== 'object') return { valid: false };
 
@@ -282,6 +298,10 @@ const validateArtifacts = (data: any): { valid: boolean; cleaned?: SavedArtifact
     };
 };
 
+/**
+ * GET /
+ * Fetches the current artifacts for the authenticated user.
+ */
 router.get('/', async (req, res) => {
   // @ts-ignore
   const userId = req.user?.id;
@@ -307,6 +327,11 @@ router.get('/', async (req, res) => {
   }
 });
 
+/**
+ * POST /
+ * Updates the artifacts for the authenticated user.
+ * Validates input and enforces rate limiting.
+ */
 router.post('/', rateLimit, async (req, res) => {
   // @ts-ignore
   const userId = req.user?.id;
@@ -330,6 +355,10 @@ router.post('/', rateLimit, async (req, res) => {
   }
 });
 
+/**
+ * DELETE /
+ * Deletes the current scenario's artifacts and chat history.
+ */
 router.delete('/', async (req, res) => {
     // @ts-ignore
     const userId = req.user?.id;

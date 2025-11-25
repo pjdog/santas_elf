@@ -6,8 +6,15 @@ import { sanitizeScenario } from './scenario';
 const ARTIFACT_ROOT = path.join(process.cwd(), 'data', 'artifacts');
 
 /**
- * Persist artifacts to disk for debugging/export.
- * Folder layout: data/artifacts/{scenario}/{userId}/{type}.json
+ * Persists the current state of artifacts to the local filesystem for debugging and export purposes.
+ * Creates a directory structure based on the scenario and user ID.
+ * 
+ * Directory layout: `data/artifacts/{scenario}/{userId}/{type}.json`
+ * 
+ * @param userId - The unique identifier of the user.
+ * @param scenario - The scenario slug (e.g., 'christmas-party').
+ * @param artifacts - The complete SavedArtifacts object to save.
+ * @returns A promise that resolves when the file operations are initiated (no return value).
  */
 export const persistArtifactsToDisk = async (userId: string, scenario: string, artifacts: SavedArtifacts) => {
     if (!userId) return;

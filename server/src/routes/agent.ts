@@ -12,6 +12,14 @@ import { runAgentExecutor } from '../utils/agentExecutor';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+/**
+ * Loads artifacts from Redis for a given user and scenario.
+ * Merges with initial defaults to ensure a valid structure.
+ * 
+ * @param userId - The user's unique ID.
+ * @param scenario - The scenario slug.
+ * @returns The user's SavedArtifacts.
+ */
 const loadArtifacts = async (userId: string, scenario: string): Promise<SavedArtifacts> => {
     const key = `santas_elf:artifacts:${userId}:${sanitizeScenario(scenario)}`;
     const data = await redisClient.get(key);
@@ -31,6 +39,14 @@ const loadArtifacts = async (userId: string, scenario: string): Promise<SavedArt
     };
 };
 
+/**
+ * Retrieves recent chat history from Redis.
+ * 
+ * @param userId - The user's ID.
+ * @param scenario - The scenario slug.
+ * @param limit - Max messages to retrieve (default 5).
+ * @returns A formatted string of chat history.
+ */
 const getChatHistory = async (userId: string, scenario: string, limit = 5): Promise<string> => {
     try {
         const key = `chat:${userId}:${sanitizeScenario(scenario)}`;
@@ -47,7 +63,13 @@ const getChatHistory = async (userId: string, scenario: string, limit = 5): Prom
 };
 
 /**
- * Helper to fetch artifacts for context injection
+ * Helper to fetch artifacts for context injection.
+ * Formats the artifacts into a human-readable string for the LLM.
+ * 
+ * @param userId - The user's ID.
+ * @param scenario - The scenario slug.
+ * @param artifactsOverride - Optional artifacts to use instead of fetching from DB.
+ * @returns A string representation of the current planner state.
  */
 const getArtifactsContext = async (userId: string, scenario: string, artifactsOverride?: SavedArtifacts) => {
     try {
@@ -83,6 +105,16 @@ const getArtifactsContext = async (userId: string, scenario: string, artifactsOv
     }
 };
 
+/**
+ * Checks if foundation notes exist and creates them if not.
+ * Uses the LLM to analyze the initial prompt and extract key event details.
+ * 
+ * @param userId - The user's ID.
+ * @param scenario - The scenario slug.
+ * @param prompt - The user's input prompt.
+ * @param artifacts - Optional existing artifacts.
+ * @returns The updated artifacts with foundation notes if created.
+ */
 const ensureFoundationNotes = async (userId: string, scenario: string, prompt: string, artifacts?: SavedArtifacts): Promise<SavedArtifacts> => {
     const scenarioKey = sanitizeScenario(scenario);
     const current = artifacts || await loadArtifacts(userId, scenarioKey);
@@ -216,6 +248,12 @@ const ensureFoundationNotes = async (userId: string, scenario: string, prompt: s
  * POST /api/agent/chat
  * Main conversational endpoint for the AI Agent.
  * Supports optional image upload for multimodal interactions.
+ * 
+ * Flow:
+ * 1. Load artifacts and ensure foundation notes exist.
+ * 2. Check for social sentiment shortcut.
+ * 3. Execute the autonomous agent loop (Reason-Act-Observe).
+ * 4. Save chat history and return response.
  */
 router.post('/chat', upload.single('image'), async (req: Request, res: Response) => {
     const { prompt } = req.body;

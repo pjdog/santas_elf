@@ -1,11 +1,13 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 
+/** Represents a single task in the todo list. */
 interface TodoItem {
   id: string;
   text: string;
   completed: boolean;
 }
 
+/** Represents a dining table configuration. */
 interface Table {
     id: string;
     name: string;
@@ -13,10 +15,12 @@ interface Table {
     guests: string[];
 }
 
+/** Represents the budget settings. */
 interface Budget {
     limit: number;
 }
 
+/** Represents a note or table created by the agent. */
 export interface AgentNote {
     id: string;
     title: string;
@@ -25,6 +29,7 @@ export interface AgentNote {
     tableRows?: string[][];
 }
 
+/** User preferences for personalization. */
 export interface Preferences {
   dietary: {
     allergies: string[];
@@ -46,18 +51,21 @@ export interface Preferences {
   };
 }
 
+/** A step within the agent's high-level plan. */
 export interface PlanStep {
   id: string;
   description: string;
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
 }
 
+/** The high-level plan structure. */
 export interface AgentPlan {
   id: string;
   title: string;
   steps: PlanStep[];
 }
 
+/** The complete state object for a scenario. */
 export interface SavedArtifacts {
   todos: TodoItem[];
   recipes: any[];
@@ -75,8 +83,11 @@ interface ArtifactContextType {
   artifacts: SavedArtifacts;
   loading: boolean;
   scenario: string;
+  /** Updates the current active scenario. */
   setScenario: (name: string) => Promise<void>;
+  /** Reloads artifacts from the server. */
   refreshArtifacts: (targetScenario?: string) => Promise<void>;
+  /** Persists updated artifacts to the server. */
   saveArtifacts: (updated: SavedArtifacts) => Promise<void>;
   addRecipe: (recipe: any) => void;
   addGift: (gift: any) => void;
@@ -85,11 +96,16 @@ interface ArtifactContextType {
   setPanelOpen: (open: boolean) => void;
   activeTab: number;
   setActiveTab: (tab: number) => void;
+  /** Deletes the specified scenario and resets if current. */
   deleteScenario: (name: string) => Promise<void>;
 }
 
 export const ArtifactContext = createContext<ArtifactContextType | undefined>(undefined);
 
+/**
+ * Context provider for managing the application state (artifacts, scenario, UI state).
+ * Handles data synchronization with the backend API.
+ */
 export const ArtifactProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [artifacts, setArtifacts] = useState<SavedArtifacts>({ 
       todos: [], 

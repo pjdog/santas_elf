@@ -7,7 +7,12 @@ import { persistArtifactsToDisk } from './utils/artifactFs';
 import { fetchProductDeals } from './utils/social';
 
 /**
- * Helper to fetch current artifacts for a user
+ * Retrieves the user's artifacts (planner data) from Redis.
+ * Initializes default structure if no data exists.
+ * 
+ * @param userId - The unique identifier of the user.
+ * @param scenario - The scenario slug (default: 'default').
+ * @returns A promise resolving to the user's SavedArtifacts.
  */
 const getArtifacts = async (userId: string, scenario = 'default'): Promise<SavedArtifacts> => {
     const data = await redisClient.get(`santas_elf:artifacts:${userId}:${sanitizeScenario(scenario)}`);
@@ -26,7 +31,11 @@ const getArtifacts = async (userId: string, scenario = 'default'): Promise<Saved
 };
 
 /**
- * Helper to save artifacts for a user
+ * Saves the user's artifacts to Redis and persists a copy to disk.
+ * 
+ * @param userId - The unique identifier of the user.
+ * @param scenario - The scenario slug.
+ * @param data - The artifacts object to save.
  */
 const saveArtifacts = async (userId: string, scenario: string, data: SavedArtifacts) => {
     const key = `santas_elf:artifacts:${userId}:${sanitizeScenario(scenario)}`;
@@ -35,8 +44,9 @@ const saveArtifacts = async (userId: string, scenario: string, data: SavedArtifa
 };
 
 /**
- * Tool Registry
- * Note: 'function' now accepts an optional second argument `context` containing userId.
+ * Tool Registry.
+ * Defines the capabilities available to the LLM Agent.
+ * Each tool maps a function description to an executable function.
  */
 export const tools: Record<string, { description: string, function: (input: string, context?: { userId: string, scenario?: string }) => Promise<any> }> = {
   find_recipe: {

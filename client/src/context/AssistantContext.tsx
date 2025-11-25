@@ -1,11 +1,16 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
+/** Preferences extracted from chat for recipes. */
 type RecipePrefs = {
+  /** Search query for the recipe (e.g. "cookies"). */
   query: string;
+  /** Number of guests to serve. */
   guests: number;
+  /** Dietary restrictions (e.g. "vegan"). */
   dietary: string;
 };
 
+/** Preferences extracted from chat for gifts. */
 type GiftPrefs = {
   recipient: string;
   interests: string;
@@ -13,10 +18,12 @@ type GiftPrefs = {
   budgetMax: string;
 };
 
+/** Preferences extracted from chat for decorations. */
 type DecorationPrefs = {
   roomHint: string;
 };
 
+/** Context interface for the Assistant's inferred state. */
 type AssistantContextType = {
   recipePrefs: RecipePrefs;
   giftPrefs: GiftPrefs;
@@ -24,6 +31,7 @@ type AssistantContextType = {
   setRecipePrefs: (update: Partial<RecipePrefs>) => void;
   setGiftPrefs: (update: Partial<GiftPrefs>) => void;
   setDecorationPrefs: (update: Partial<DecorationPrefs>) => void;
+  /** Parses a user prompt to update local state preferences (e.g. extracting "vegan" or budget). */
   applyChatInsights: (prompt: string) => void;
 };
 
@@ -46,6 +54,11 @@ const defaultDecorationPrefs: DecorationPrefs = {
   roomHint: '',
 };
 
+/**
+ * Provider that maintains "session state" derived from chat.
+ * Unlike ArtifactContext which stores confirmed data, this context holds
+ * temporary or inferred state used to pre-fill UI widgets.
+ */
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [recipePrefs, updateRecipePrefs] = useState<RecipePrefs>(defaultRecipePrefs);
   const [giftPrefs, updateGiftPrefs] = useState<GiftPrefs>(defaultGiftPrefs);
