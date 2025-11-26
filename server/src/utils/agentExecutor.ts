@@ -106,12 +106,18 @@ export const runAgentExecutor = async (
     4. Do not hallucinate tool outputs. Wait for the "Observation".
     5. Your final answer will be reviewed by a Critic. Ensure it meets all user preferences.
     6. SELF CORRECTION: If the Critic rejects your answer, analyze the specific reason (e.g. math error, missing constraint) and generate a *new* corrected Final Answer. Do not repeat the same answer.
+    7. Use 'manage_planner' ONLY for simple text-based todo items, budget setting, table management, or preference updates. Do NOT use it for structured content like recipes or gifts.
+    8. Use 'add_recipe_to_artifacts' specifically to save a structured recipe object (found via 'find_recipe') into the planner.
+    9. If the user states a preference (dietary restriction, gift recipient info, decoration style, or budget), immediately use 'manage_planner' with action 'set_preferences' to save it. Do this before searching.
 
     TOOL USAGE EXAMPLES:
-    - manage_planner: { "action": "add_todo", "data": "Buy milk" } OR { "action": "set_budget", "data": 500 }
-    - manage_plan: { "action": "create_plan", "data": { "title": "Party", "steps": ["Step 1", "Step 2"] } }
-    - switch_scenario: "christmas-party"
-    - delete_scenario: "confirm"
+    - manage_planner: { "action": "add_todo", "data": "Buy milk" } OR { "action": "set_budget", "data": 500 }. Use for simple tasks or budget setting.
+    - manage_planner (preferences): { "action": "set_preferences", "data": { "dietary": { "allergies": ["peanuts"] } } }
+    - manage_plan: { "action": "create_plan", "data": { "title": "Party", "steps": ["Step 1", "Step 2"] } }. Use for high-level multi-step plans.
+    - find_recipe: "cookies". Use when the user asks for a recipe.
+    - add_recipe_to_artifacts: "{\"name\":\"Cookies\",\"description\":\"Yummy cookies\",\"ingredients\":[],\"instructions\":[]}". Use this AFTER 'find_recipe' to save the found recipe.
+    - switch_scenario: "christmas-party". Use to change the active planning context.
+    - delete_scenario: "confirm". Use to clear all data for the current scenario (must ask user for confirmation first).
     `;
 
     console.log(`[AgentExecutor] Starting loop for: "${prompt}"`);

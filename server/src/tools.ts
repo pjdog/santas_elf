@@ -404,6 +404,29 @@ tools['find_product_insights'] = {
     }
 };
 
+tools['add_recipe_to_artifacts'] = {
+    description: "Adds a structured recipe object (JSON string) to the user's saved recipes. Input: JSON string representing the recipe.",
+    function: async (input: string, context?: { userId: string, scenario?: string }) => {
+        if (!context?.userId) return { success: false, message: "Error: No user context." };
+        const scenario = sanitizeScenario(context.scenario || 'default');
+        
+        try {
+            const recipe = JSON.parse(input);
+            if (!recipe || !recipe.name) {
+                return { success: false, message: "Invalid recipe data." };
+            }
+
+            const artifacts = await getArtifacts(context.userId, scenario);
+            artifacts.recipes.push(recipe);
+            await saveArtifacts(context.userId, scenario, artifacts);
+            return { success: true, message: `Recipe '${recipe.name}' added to your recipes.`, artifacts };
+        } catch (e: any) {
+            console.error("Add recipe to artifacts error", e);
+            return { success: false, message: "Failed to add recipe to artifacts." };
+        }
+    }
+};
+
 tools['switch_scenario'] = {
     description: "Switches the current active scenario to a new or existing one. Use this when the user wants to start planning a specific event (e.g., 'plan a christmas party', 'switch to birthday'). Input: slug of the scenario (e.g., 'christmas-party').",
     function: async (input: string) => {

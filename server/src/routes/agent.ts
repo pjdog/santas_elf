@@ -380,7 +380,7 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
         let replyData: SavedArtifacts | string | undefined | any = agentResult.updatedArtifacts;
 
         // Map tool usage to UI types for widgets
-        if (agentResult.lastToolUsed === 'find_recipe') {
+        if (agentResult.lastToolUsed === 'find_recipe' || agentResult.lastToolUsed === 'add_recipe_to_artifacts') {
             replyType = 'recipe';
             replyData = agentResult.lastToolResult;
         } else if (agentResult.lastToolUsed === 'find_gift') {
