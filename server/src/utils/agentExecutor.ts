@@ -110,6 +110,7 @@ export const runAgentExecutor = async (
     TOOL USAGE EXAMPLES:
     - manage_planner: { "action": "add_todo", "data": "Buy milk" } OR { "action": "set_budget", "data": 500 }
     - manage_plan: { "action": "create_plan", "data": { "title": "Party", "steps": ["Step 1", "Step 2"] } }
+    - switch_scenario: "christmas-party"
     - delete_scenario: "confirm"
     `;
 

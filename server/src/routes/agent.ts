@@ -377,7 +377,7 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
         
         let replyMessage = agentResult.finalAnswer;
         let replyType = 'chat';
-        let replyData = agentResult.updatedArtifacts;
+        let replyData: SavedArtifacts | string | undefined | any = agentResult.updatedArtifacts;
 
         // Map tool usage to UI types for widgets
         if (agentResult.lastToolUsed === 'find_recipe') {
@@ -392,6 +392,13 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
         } else if (agentResult.lastToolUsed === 'commerce_checkout' || agentResult.lastToolUsed === 'find_product_insights') {
             replyType = 'commerce';
             replyData = agentResult.lastToolResult;
+        } else if (agentResult.lastToolUsed === 'switch_scenario') {
+            // Special handling for scenario switch: tell the frontend to change context
+            replyType = 'switch_scenario';
+            replyData = sanitizeScenario(agentResult.lastToolResult?.scenarioName);
+            // The message from the tool ("Switching to...") is already in finalAnswer usually, 
+            // but we can enforce it if the agent didn't say it.
+            if (!replyMessage) replyMessage = `Switching to ${replyData}...`;
         }
 
         // Inject fun fact and todos if we just established the foundation

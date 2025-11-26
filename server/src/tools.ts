@@ -404,6 +404,18 @@ tools['find_product_insights'] = {
     }
 };
 
+tools['switch_scenario'] = {
+    description: "Switches the current active scenario to a new or existing one. Use this when the user wants to start planning a specific event (e.g., 'plan a christmas party', 'switch to birthday'). Input: slug of the scenario (e.g., 'christmas-party').",
+    function: async (input: string) => {
+        const scenarioName = sanitizeScenario(input);
+        return {
+            success: true,
+            message: `Switching to scenario: ${scenarioName}`,
+            scenarioName
+        };
+    }
+};
+
 tools['delete_scenario'] = {
     description: "Deletes the current scenario's plan, artifacts, and chat history. CAUTION: This action is irreversible. Input: 'confirm' to proceed.",
     function: async (input: string, context?: { userId: string, scenario?: string }) => {
