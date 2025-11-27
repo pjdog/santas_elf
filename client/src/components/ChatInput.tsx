@@ -11,19 +11,29 @@ import Chip from '@mui/material/Chip';
 
 interface ChatInputProps {
   onSendMessage: (text: string, file?: File) => void;
+  disabled?: boolean;
+  selectedFile?: File | null;
+  onFileSelected?: (file: File | null) => void;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = false, selectedFile: externalFile = null, onFileSelected }) => {
   const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(externalFile);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Keep local selection in sync with parent
+  React.useEffect(() => {
+    setSelectedFile(externalFile || null);
+  }, [externalFile]);
+
   const handleSend = () => {
+    if (disabled) return;
     if (text.trim() || selectedFile) {
       onSendMessage(text, selectedFile || undefined);
       setText('');
       setSelectedFile(null);
+      onFileSelected?.(null);
     }
   };
 
@@ -37,10 +47,12 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           setSelectedFile(e.target.files[0]);
+          onFileSelected?.(e.target.files[0]);
       }
   };
 
   const toggleListening = () => {
+    if (disabled) return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert('Web Speech API is not supported in this browser.');
@@ -74,7 +86,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
             <Box sx={{ mb: 1, display: 'flex', justifyContent: 'flex-start' }}>
                 <Chip 
                     label={selectedFile.name} 
-                    onDelete={() => setSelectedFile(null)} 
+                    onDelete={() => { setSelectedFile(null); onFileSelected?.(null); }} 
                     color="primary" 
                     variant="outlined" 
                     sx={{ bgcolor: '#fff' }}
@@ -105,12 +117,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
             ref={fileInputRef} 
             onChange={handleFileChange} 
             accept="image/*"
+            disabled={disabled}
         />
         
         <IconButton 
             sx={{ p: '10px', color: '#86868B' }} 
             aria-label="attach file" 
             onClick={() => fileInputRef.current?.click()}
+            disabled={disabled}
         >
             <AttachFileIcon />
         </IconButton>
@@ -119,6 +133,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
             sx={{ p: '10px', color: isListening ? '#FF3B30' : '#86868B' }} 
             aria-label="voice" 
             onClick={toggleListening}
+            disabled={disabled}
         >
             {isListening ? <MicOffIcon /> : <MicIcon />}
         </IconButton>
@@ -130,6 +145,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyPress={handleKeyPress}
+            disabled={disabled}
         />
         
         <IconButton 

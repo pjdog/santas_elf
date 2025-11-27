@@ -15,11 +15,13 @@ import { Fade } from '@mui/material';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import { ArtifactContext } from '../context/ArtifactContext';
+import Button from '@mui/material/Button';
 
 import RecipeWidget from '../components/RecipeWidget';
 import GiftWidget from '../components/GiftWidget';
 import DecorationWidget from '../components/DecorationWidget';
 import VoiceMode from '../components/VoiceMode';
+import FormattedText from '../components/FormattedText';
 
 interface Message {
     sender: 'user' | 'ai';
@@ -63,6 +65,13 @@ const HomePage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
+  const [liveTrace, setLiveTrace] = useState<string[]>([]);
+  const [progressMessage, setProgressMessage] = useState<string>('');
+  const progressPollerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressMissesRef = useRef(0);
+  const lastPayloadRef = useRef<{ text: string; file?: File | null; scenario: string } | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
   
   const context = useContext(ArtifactContext);
   const panelOpen = context?.panelOpen ?? false;
@@ -71,6 +80,7 @@ const HomePage: React.FC = () => {
   const scenario = context?.scenario ?? 'default';
   const setScenario = context?.setScenario ?? (async () => {});
   const refreshArtifacts = context?.refreshArtifacts ?? (async () => {});
+  const updateArtifacts = context?.updateArtifacts ?? (() => {});
 
   const theme = useTheme();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -111,13 +121,96 @@ const HomePage: React.FC = () => {
     scrollToBottom();
   }, [messages, loading]);
 
+  // Create a temporary preview URL for selected files
+  useEffect(() => {
+    if (!pendingFile) {
+        setPendingPreviewUrl(null);
+        return;
+    }
+    const url = URL.createObjectURL(pendingFile);
+    setPendingPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingFile]);
+
+  // Title notification logic
+  const prevLoadingRef = useRef(loading);
+  useEffect(() => {
+    if (loading) {
+        document.title = "Thinking... 🧠";
+    } else if (prevLoadingRef.current && !loading) {
+        // Transitioned from loading -> done
+        document.title = "🔴 Response Ready!";
+        const timer = setTimeout(() => {
+            document.title = "Santa's Elf";
+        }, 4000);
+        return () => clearTimeout(timer);
+    }
+    prevLoadingRef.current = loading;
+  }, [loading]);
+
+  const stopProgressPolling = () => {
+    if (progressPollerRef.current) {
+        clearInterval(progressPollerRef.current);
+        progressPollerRef.current = null;
+    }
+    progressMissesRef.current = 0;
+    setLiveTrace([]);
+    setProgressMessage('');
+  };
+
+  useEffect(() => {
+    return () => stopProgressPolling();
+  }, []);
+
+  const pollProgress = async (scenarioName: string) => {
+    try {
+        const res = await fetch(`/api/agent/progress?scenario=${encodeURIComponent(scenarioName)}`);
+        if (res.status === 401) {
+            stopProgressPolling();
+            return;
+        }
+        if (!res.ok) {
+            progressMissesRef.current += 1;
+            if (progressMissesRef.current >= 3) {
+                setProgressMessage('Connection dropped. You can resubmit or wait a moment.');
+                if (progressPollerRef.current) clearInterval(progressPollerRef.current);
+                progressPollerRef.current = null;
+            }
+            return;
+        }
+        const data = await res.json();
+        if (data.status && data.status !== 'idle') {
+            setLiveTrace(Array.isArray(data.steps) ? data.steps : []);
+            setProgressMessage(data.message || '');
+            progressMissesRef.current = 0;
+        }
+    } catch (e) {
+        progressMissesRef.current += 1;
+        if (progressMissesRef.current >= 3) {
+            setProgressMessage('Connection dropped. You can resubmit or wait a moment.');
+            if (progressPollerRef.current) clearInterval(progressPollerRef.current);
+            progressPollerRef.current = null;
+        }
+    }
+  };
+
+  const startProgressPolling = (scenarioName: string) => {
+    stopProgressPolling();
+    progressMissesRef.current = 0;
+    pollProgress(scenarioName);
+    progressPollerRef.current = setInterval(() => pollProgress(scenarioName), 1500);
+  };
+
   const handleSendMessage = async (text: string, file?: File, scenarioOverride?: string): Promise<any> => {
+    if (loading) return null; // debounce overlapping sends
     if (!text.trim() && !file) return null;
 
+    const scenarioName = scenarioOverride || scenario;
+    lastPayloadRef.current = { text, file, scenario: scenarioName };
     const userMsg: Message = { sender: 'user', text, type: 'text' };
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
-    const scenarioName = scenarioOverride || scenario;
+    startProgressPolling(scenarioName);
 
     try {
         let response;
@@ -145,6 +238,7 @@ const HomePage: React.FC = () => {
                 text: "Please log in to continue chatting." 
             }]);
             setLoading(false);
+            stopProgressPolling();
             return null;
         }
 
@@ -159,7 +253,7 @@ const HomePage: React.FC = () => {
             await setScenario(nextScenario);
             await refreshArtifacts(nextScenario);
             // Recursively call to process the original prompt in the new scenario context
-            return handleSendMessage(text, file, nextScenario);
+            return await handleSendMessage(text, file, nextScenario);
         }
 
         const aiMsg: Message = {
@@ -171,8 +265,10 @@ const HomePage: React.FC = () => {
         };
         setMessages((prev) => [...prev, aiMsg]);
 
-        // If the backend says artifacts were updated (by a management tool), refresh the context
-        if (data.artifactsUpdated) {
+        // Instant update if payload is present, otherwise fallback to fetch
+        if (data.updatedArtifacts) {
+            updateArtifacts(data.updatedArtifacts);
+        } else if (data.artifactsUpdated) {
             refreshArtifacts();
         }
         
@@ -183,10 +279,12 @@ const HomePage: React.FC = () => {
         setMessages((prev) => [...prev, { 
             sender: 'ai', 
             type: 'error', 
-            text: "I'm having trouble connecting to the North Pole. Please try again." 
+            text: "I'm having trouble connecting to the North Pole. Please try again.", 
+            data: lastPayloadRef.current ? { retryable: true, prompt: lastPayloadRef.current.text, scenario: lastPayloadRef.current.scenario } : undefined
         }]);
         return null;
     } finally {
+        stopProgressPolling();
         setLoading(false);
     }
   };
@@ -220,6 +318,22 @@ const HomePage: React.FC = () => {
       />
 
       <Box sx={{ flexGrow: 1, overflowY: 'auto', px: 2, py: 4, mr: panelOpen ? '350px' : 0, transition: 'margin-right 0.3s' }}>
+        {pendingFile && pendingPreviewUrl && (
+            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2, p: 1.5, bgcolor: 'rgba(255,255,255,0.92)', borderRadius: 2, border: '1px dashed rgba(0,0,0,0.1)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                <Box
+                    component="img"
+                    src={pendingPreviewUrl}
+                    alt={pendingFile.name}
+                    sx={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 1, border: '1px solid rgba(0,0,0,0.08)' }}
+                />
+                <Box sx={{ flexGrow: 1 }}>
+                    <Typography variant="body2" fontWeight={600} gutterBottom>Photo attached</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{pendingFile.name}</Typography>
+                    <Button size="small" sx={{ mt: 1 }} onClick={() => setPendingFile(null)} disabled={loading}>Remove</Button>
+                </Box>
+            </Box>
+        )}
+
         {messages.map((msg, index) => (
             <Fade in={true} timeout={500} key={index}>
             <Box
@@ -248,10 +362,22 @@ const HomePage: React.FC = () => {
                                 boxShadow: msg.sender === 'ai' ? '0 2px 12px rgba(0,0,0,0.05)' : '0 4px 15px rgba(255, 59, 48, 0.3)',
                             }}
                         >
-                            <Typography variant="body1" sx={{ lineHeight: 1.6 }}>{msg.text}</Typography>
+                            <FormattedText text={msg.text || ''} />
                             {msg.trace && msg.trace.length > 0 && (
                                 <Box sx={{ mt: 1, opacity: 0.8 }}>
                                     <ThinkingElf message="View Thought Process" steps={msg.trace} isAnimating={false} />
+                                </Box>
+                            )}
+                            {msg.type === 'error' && msg.data?.retryable && (
+                                <Box sx={{ mt: 1 }}>
+                                    <Button 
+                                        size="small" 
+                                        variant="outlined" 
+                                        onClick={() => handleSendMessage(msg.data.prompt || '', undefined, msg.data.scenario)}
+                                        disabled={loading}
+                                    >
+                                        Resubmit
+                                    </Button>
                                 </Box>
                             )}
                         </Paper>
@@ -268,7 +394,7 @@ const HomePage: React.FC = () => {
         ))}
         
         {/* The Thinking Elf Animation (Loading State) */}
-        {loading && <ThinkingElf isAnimating={loading} />}
+        {loading && <ThinkingElf isAnimating={loading} steps={liveTrace} message={progressMessage || "Thinking..."} />}
         
         <div ref={messagesEndRef} />
       </Box>
@@ -277,7 +403,12 @@ const HomePage: React.FC = () => {
         {messages.length < 3 && (
             <SuggestionChips onSelect={(text) => handleSendMessage(text)} />
         )}
-        <ChatInput onSendMessage={handleSendMessage} />
+        <ChatInput 
+            onSendMessage={handleSendMessage} 
+            disabled={loading} 
+            selectedFile={pendingFile}
+            onFileSelected={setPendingFile}
+        />
       </Box>
     </Box>
   );

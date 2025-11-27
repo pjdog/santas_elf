@@ -8,9 +8,21 @@ import { INITIAL_ARTIFACTS, SavedArtifacts } from './artifacts';
 import { fetchSocialSuggestions } from '../utils/social';
 import { sanitizeScenario } from '../utils/scenario';
 import { runAgentExecutor } from '../utils/agentExecutor';
+import axios from 'axios';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
+const PROGRESS_TTL_SECONDS = 120;
+
+const saveProgress = async (userId: string | undefined, scenario: string, progress: any) => {
+    if (!userId) return;
+    const key = `progress:${userId}:${sanitizeScenario(scenario)}`;
+    try {
+        await redisClient.set(key, JSON.stringify({ ...progress, updatedAt: Date.now() }), { EX: PROGRESS_TTL_SECONDS });
+    } catch (err) {
+        console.warn('Failed to persist progress', err);
+    }
+};
 
 /**
  * Loads artifacts from Redis for a given user and scenario.
@@ -256,7 +268,7 @@ const ensureFoundationNotes = async (userId: string, scenario: string, prompt: s
  * 4. Save chat history and return response.
  */
 router.post('/chat', upload.single('image'), async (req: Request, res: Response) => {
-    const { prompt } = req.body;
+    const { prompt, purpose } = req.body;
     const file = req.file;
     // @ts-ignore
     const userId = req.user?.id;
@@ -303,22 +315,13 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
     try {
         // Handling Multimodal Input (Image + Text)
         if (file) {
-            // ... (Same as before for image logic) ...
             const config = getConfig();
-            if (!config.llm?.apiKey) throw new Error("LLM API Key missing");
-            
-            const genAI = new GoogleGenerativeAI(config.llm.apiKey);
-            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+            if (!config.llm?.apiKey) {
+                return res.status(400).json({ type: 'error', message: 'Image analysis requires an LLM API key. Please configure one in LLM Setup.' });
+            }
 
-            const imagePart = {
-                inlineData: {
-                    data: file.buffer.toString("base64"),
-                    mimeType: file.mimetype,
-                },
-            };
-
-            const visionPrompt = prompt || "What suggestions do you have for this?";
-            const fullPrompt = `${visionPrompt} 
+            let visionPrompt = prompt || "What suggestions do you have for this?";
+            let fullPrompt = `${visionPrompt} 
             
             If this looks like a room, suggest decoration themes.
             If it looks like food, maybe suggest a recipe or plating. 
@@ -331,9 +334,96 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
             }
             Return ONLY JSON.`;
 
-            const result = await model.generateContent([fullPrompt, imagePart]);
-            const text = result.response.text();
-            const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            if (purpose === 'seating_plan') {
+                visionPrompt = "Analyze this image of a dining area and generate a seating plan.";
+                fullPrompt = `${visionPrompt} 
+                
+                Identify tables and chairs.
+                Return a JSON object with:
+                {
+                    "type": "seating_plan",
+                    "message": "Here is a seating plan based on your photo.",
+                    "data": [
+                        { "id": "t1", "name": "Main Table", "seats": 6, "guests": ["Guest 1", "Guest 2", "Guest 3", "Guest 4", "Guest 5", "Guest 6"] }
+                    ]
+                }
+                Use realistic guesses for guest names or leave them as "Guest X".
+                Return ONLY JSON.`;
+            }
+
+            const imageBase64 = file.buffer.toString("base64");
+            const provider = (config.llm?.provider || 'gemini').toLowerCase();
+            let responseText = '';
+
+            try {
+                if (provider === 'gemini') {
+                    const genAI = new GoogleGenerativeAI(config.llm.apiKey);
+                    const model = genAI.getGenerativeModel({ model: config.llm.model || 'gemini-1.5-flash' });
+                    const imagePart = {
+                        inlineData: {
+                            data: imageBase64,
+                            mimeType: file.mimetype,
+                        },
+                    };
+                    const result = await model.generateContent([fullPrompt, imagePart]);
+                    responseText = result.response.text();
+                } else if (provider === 'openai' || provider === 'custom') {
+                    const baseUrl = (config.llm.baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+                    const url = `${baseUrl}/chat/completions`;
+                    const model = config.llm.model || 'gpt-4o-mini';
+                    const messages = [
+                        {
+                            role: 'user',
+                            content: [
+                                { type: 'text', text: fullPrompt },
+                                { type: 'image_url', image_url: { url: `data:${file.mimetype};base64,${imageBase64}` } }
+                            ]
+                        }
+                    ];
+                    const result = await axios.post(url, { model, messages }, {
+                        headers: {
+                            'Authorization': `Bearer ${config.llm.apiKey}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    const content = result.data.choices?.[0]?.message?.content;
+                    responseText = Array.isArray(content)
+                        ? content.map((c: any) => c.text || '').join('\n')
+                        : content || '';
+                } else if (provider === 'anthropic') {
+                    const url = 'https://api.anthropic.com/v1/messages';
+                    const model = config.llm.model || 'claude-3-opus-20240229';
+                    const payload = {
+                        model,
+                        max_tokens: 500,
+                        messages: [
+                            {
+                                role: 'user',
+                                content: [
+                                    { type: 'text', text: fullPrompt },
+                                    { type: 'image', source: { type: 'base64', media_type: file.mimetype, data: imageBase64 } }
+                                ]
+                            }
+                        ]
+                    };
+                    const result = await axios.post(url, payload, {
+                        headers: {
+                            'x-api-key': config.llm.apiKey,
+                            'anthropic-version': '2023-06-01',
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    const content = result.data?.content || [];
+                    responseText = content.map((c: any) => c.text || '').join('\n');
+                } else {
+                    return res.status(400).json({ type: 'error', message: `Image analysis is not supported for provider "${provider}".` });
+                }
+            } catch (err: any) {
+                console.error('Vision analysis failed', err?.response?.data || err);
+                return res.status(500).json({ type: 'error', message: 'Failed to analyze image. Please try again.' });
+            }
+
+            const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
             
             let responseData;
             try {
@@ -342,7 +432,7 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
                 responseData = {
                     type: 'decoration',
                     message: "Here are my thoughts:",
-                    data: text
+                    data: cleanedText
                 };
             }
 
@@ -373,7 +463,19 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
         }
         
         // EXECUTE THE AGENT LOOP
-        const agentResult = await runAgentExecutor(userId, scenario, prompt, contextInfo + `\n\nHISTORY:\n${history}`);
+        await saveProgress(userId, scenario, { status: 'starting', message: 'Spinning up the sleigh...', step: 0, steps: [] });
+
+        const agentResult = await runAgentExecutor(
+            userId, 
+            scenario, 
+            prompt, 
+            contextInfo + `\n\nHISTORY:\n${history}`,
+            10,
+            60000,
+            async (progress) => {
+                await saveProgress(userId, scenario, progress);
+            }
+        );
         
         let replyMessage = agentResult.finalAnswer;
         let replyType = 'chat';
@@ -436,6 +538,7 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
 
     } catch (error: any) {
         console.error('Error in agent chat:', error);
+        await saveProgress(userId, scenario, { status: 'error', message: 'Agent run failed.', step: 0, steps: [] });
         res.status(500).json({ 
             type: 'error', 
             message: 'Failed to process request' 
@@ -459,6 +562,25 @@ router.get('/history', async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Error fetching chat history:', error);
         res.status(500).json({ message: 'Failed to fetch history' });
+    }
+});
+
+router.get('/progress', async (req: Request, res: Response) => {
+    // @ts-ignore
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const scenario = sanitizeScenario((req.query.scenario as string) || 'default');
+    const key = `progress:${userId}:${scenario}`;
+
+    try {
+        const cached = await redisClient.get(key);
+        if (!cached) {
+            return res.json({ status: 'idle', steps: [], message: '' });
+        }
+        return res.json(JSON.parse(cached));
+    } catch (error) {
+        console.error('Error fetching progress:', error);
+        return res.status(500).json({ status: 'error', message: 'Failed to fetch progress' });
     }
 });
 

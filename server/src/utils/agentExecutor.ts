@@ -11,6 +11,15 @@ interface AgentResult {
     lastToolResult?: any;
 }
 
+interface AgentProgress {
+    step: number;
+    maxSteps: number;
+    status: 'starting' | 'thinking' | 'tool' | 'finalizing' | 'error' | 'done';
+    message: string;
+    steps: string[];
+    lastToolUsed?: string;
+}
+
 /**
  * Critic Helper: Validates the agent's proposed answer against the user's request.
  */
@@ -56,7 +65,9 @@ export const runAgentExecutor = async (
     scenario: string, 
     prompt: string, 
     contextInfo: string, 
-    maxSteps: number = 10
+    maxSteps: number = 10,
+    timeoutMs: number = 60000,
+    onProgress?: (progress: AgentProgress) => Promise<void> | void
 ): Promise<AgentResult> => {
     
     const scratchpad: string[] = [];
@@ -65,6 +76,7 @@ export const runAgentExecutor = async (
     let lastArtifacts: SavedArtifacts | undefined;
     let lastToolUsed: string | undefined;
     let lastToolResult: any | undefined; // Capture data for UI
+    const startTime = Date.now();
 
     // Initial System Prompt Construction
     const toolDesc = toolDefinitions.map(t => `- ${t.name}: ${t.description}`).join('\n');
@@ -122,7 +134,34 @@ export const runAgentExecutor = async (
 
     console.log(`[AgentExecutor] Starting loop for: "${prompt}"`);
 
+    const sendProgress = async (status: AgentProgress['status'], message: string, stepIndex = 0) => {
+        if (!onProgress) return;
+        try {
+            await onProgress({
+                status,
+                message,
+                step: stepIndex,
+                maxSteps,
+                steps: [...scratchpad],
+                lastToolUsed
+            });
+        } catch (err) {
+            console.warn('[AgentExecutor] Progress hook failed', err);
+        }
+    };
+
+    await sendProgress('starting', 'Warming up the sleigh...', 0);
+
     for (let i = 0; i < maxSteps; i++) {
+        // Check for Timeout
+        if (Date.now() - startTime > timeoutMs) {
+            console.warn(`[AgentExecutor] Timeout reached (${timeoutMs}ms). Stopping.`);
+            scratchpad.push(`System: Execution timed out after ${timeoutMs}ms.`);
+            finalAnswer = "I apologize, but I'm taking a bit longer than expected to complete this request. I've stopped to prevent keeping you waiting. Could you please clarify or narrow down what you'd like me to do next based on what I've found so far?";
+            await sendProgress('done', 'Timeout reached. Returning partial results.', i + 1);
+            break;
+        }
+
         // Construct the dynamic prompt with history
         const currentPrompt = `
         ${systemPromptBase}
@@ -142,27 +181,33 @@ export const runAgentExecutor = async (
             let parsed;
             try {
                 parsed = JSON.parse(cleanedResponse);
-            } catch (e) {
+                if (typeof parsed !== 'object' || parsed === null) throw new Error("Response is not an object");
+                if (!parsed.final_answer && !parsed.action) throw new Error("Response missing 'final_answer' or 'action'");
+            } catch (e: any) {
                 // Self-correction attempt
-                console.warn(`[AgentExecutor] JSON Parse Error on step ${i}:`, cleanedResponse);
-                scratchpad.push(`System: Invalid JSON returned. Please format as strict JSON.`);
+                console.warn(`[AgentExecutor] JSON Parse/Validation Error on step ${i}:`, e.message);
+                scratchpad.push(`System: Invalid JSON returned (${e.message}). Please format as strict JSON with "action" or "final_answer".`);
+                await sendProgress('thinking', 'Fixing JSON formatting...', i + 1);
                 continue;
             }
 
             if (parsed.final_answer) {
                 // Run Critic before accepting
                 console.log(`[AgentExecutor] Proposing answer. Running critic...`);
+                await sendProgress('finalizing', 'Reviewing answer...', i + 1);
                 const critique = await runCritic(prompt, contextInfo, parsed.final_answer);
                 
                 if (critique.valid) {
                     finalAnswer = parsed.final_answer;
                     scratchpad.push(`Thought: ${parsed.thought}`);
                     scratchpad.push(`Final Answer: ${parsed.final_answer}`);
+                    await sendProgress('done', 'Ready to deliver!', i + 1);
                     break;
                 } else {
                     console.log(`[AgentExecutor] Critic rejected: ${critique.reason}`);
                     scratchpad.push(`Thought: ${parsed.thought}`);
                     scratchpad.push(`Critic: Your answer was rejected. Reason: ${critique.reason}. Please fix this and try again.`);
+                    await sendProgress('thinking', 'Critic asked for a fix...', i + 1);
                     // Don't break; loop continues to let agent fix it
                     continue;
                 }
@@ -172,6 +217,7 @@ export const runAgentExecutor = async (
                 scratchpad.push(`Thought: ${parsed.thought}`);
                 scratchpad.push(`Action: ${parsed.action}("${parsed.action_input}")`);
                 console.log(`[AgentExecutor] Executing ${parsed.action}...`);
+                await sendProgress('tool', `Using ${parsed.action}...`, i + 1);
 
                 try {
                     // Execute Tool
@@ -204,24 +250,29 @@ export const runAgentExecutor = async (
                     }
 
                     scratchpad.push(`Observation: ${outputStr}`);
+                    await sendProgress('thinking', 'Got a result, planning next step...', i + 1);
 
                 } catch (toolErr: any) {
                     scratchpad.push(`Observation: Tool Execution Error - ${toolErr.message}`);
+                    await sendProgress('error', `Tool failed: ${toolErr.message}`, i + 1);
                 }
             } else {
                 scratchpad.push(`System: Unknown action "${parsed.action}". Valid tools: ${toolDefinitions.map(t => t.name).join(', ')}`);
+                await sendProgress('error', `Unknown action ${parsed.action}`, i + 1);
             }
 
         } catch (llmErr: any) {
             console.error("[AgentExecutor] LLM Error", llmErr);
             scratchpad.push(`System: LLM Generation Error. Stopping.`);
             finalAnswer = "I encountered an error while thinking. Please try again.";
+            await sendProgress('error', 'LLM error halted the run.', i + 1);
             break;
         }
     }
 
     if (!finalAnswer) {
         finalAnswer = "I stopped because I hit the thinking limit. However, I have performed some actions (check the plan below).";
+        await sendProgress('done', 'Hit safety limit, wrapping up.', maxSteps);
     }
 
     return {

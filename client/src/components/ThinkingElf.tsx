@@ -102,18 +102,24 @@ const ThinkingElf: React.FC<ThinkingElfProps> = ({ message, steps = [], isAnimat
                 <Box sx={{ width: 6, height: 6, bgcolor: '#34C759', borderRadius: '50%', animation: isAnimating ? `${float} 1s infinite 0.4s` : 'none' }} />
             </Box>
             <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                {lastStep || message || "Thinking..."}
+                {message || lastStep || "Thinking..."}
             </Typography>
         </Box>
 
         {/* Expanded Reasoning Trace */}
         <Collapse in={expanded}>
             <Box sx={{ mt: 1, maxHeight: 200, overflowY: 'auto', borderTop: '1px solid #eee', pt: 1 }}>
-                {steps.map((step, i) => (
-                    <Typography key={i} variant="caption" display="block" sx={{ mb: 0.5, fontFamily: 'monospace', fontSize: '0.7rem', color: step.startsWith('Error') ? 'red' : 'text.secondary' }}>
-                        {step}
+                {steps.length > 0 ? (
+                    steps.map((step, i) => (
+                        <Typography key={i} variant="caption" display="block" sx={{ mb: 0.5, fontFamily: 'monospace', fontSize: '0.7rem', color: step.startsWith('Error') ? 'red' : 'text.secondary' }}>
+                            {step}
+                        </Typography>
+                    ))
+                ) : (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                        The elf is busy thinking! Detailed real-time thoughts are not yet available, but he's working hard to fulfill your request.
                     </Typography>
-                ))}
+                )}
             </Box>
         </Collapse>
       </Box>
