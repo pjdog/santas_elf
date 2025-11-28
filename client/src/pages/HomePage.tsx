@@ -253,7 +253,34 @@ const HomePage: React.FC = () => {
             await setScenario(nextScenario);
             await refreshArtifacts(nextScenario);
             // Recursively call to process the original prompt in the new scenario context
+            // We must reset loading state temporarily to allow recursion
+            setLoading(false);
             return await handleSendMessage(text, file, nextScenario);
+        }
+
+        if (data.type === 'continue') {
+            const nextPrompt = data.data;
+            
+            // Display the partial result from the previous agent run
+            const aiMsg: Message = {
+                sender: 'ai',
+                text: data.message,
+                type: 'text', // Treat chaining message as text
+                trace: data.trace
+            };
+            setMessages((prev) => [...prev, aiMsg]);
+
+            // Instant update if artifacts changed
+            if (data.updatedArtifacts) updateArtifacts(data.updatedArtifacts);
+            else if (data.artifactsUpdated) refreshArtifacts();
+
+            // Reset state to allow next message
+            setLoading(false);
+            stopProgressPolling();
+
+            // Trigger the next step automatically
+            // This will appear as a new User message with the chained instruction, which is good for visibility
+            return await handleSendMessage(nextPrompt, undefined, scenarioName);
         }
 
         const aiMsg: Message = {
@@ -362,7 +389,7 @@ const HomePage: React.FC = () => {
                                 boxShadow: msg.sender === 'ai' ? '0 2px 12px rgba(0,0,0,0.05)' : '0 4px 15px rgba(255, 59, 48, 0.3)',
                             }}
                         >
-                            <FormattedText text={msg.text || ''} />
+                            <FormattedText text={typeof msg.text === 'string' ? msg.text : JSON.stringify(msg.text || '')} />
                             {msg.trace && msg.trace.length > 0 && (
                                 <Box sx={{ mt: 1, opacity: 0.8 }}>
                                     <ThinkingElf message="View Thought Process" steps={msg.trace} isAnimating={false} />

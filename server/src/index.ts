@@ -68,6 +68,10 @@ app.use('/api/admin', adminRoutes);
 const docsDir = path.join(__dirname, '../docs');
 if (fs.existsSync(docsDir)) {
     app.use('/docs', express.static(docsDir));
+    // Backward-compatible entrypoint for API docs (old link: /api-docs)
+    app.get(['/api-docs', '/api-doc'], (_req, res) => {
+        res.redirect('/docs');
+    });
 }
 
 app.get('/', (_req, res) => {

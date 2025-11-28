@@ -36,11 +36,13 @@ import NoteAltIcon from '@mui/icons-material/NoteAlt';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import ChairIcon from '@mui/icons-material/Chair';
 import { Link as RouterLink } from 'react-router-dom';
 import { ArtifactContext } from '../context/ArtifactContext';
 import NotesTab from './NotesTab';
 import PreferencesTab from './PreferencesTab';
 import PlanTab from './PlanTab';
+import SeatingTab from './SeatingTab';
 
 const ArtifactPanel: React.FC = () => {
   const context = useContext(ArtifactContext);
@@ -62,6 +64,7 @@ const ArtifactPanel: React.FC = () => {
       activeTab, 
       setActiveTab,
       scenario,
+      scenarios,
       setScenario,
       deleteScenario
   } = context;
@@ -90,6 +93,9 @@ const ArtifactPanel: React.FC = () => {
       setIsDeleteConfirmOpen(false);
   };
 
+  // Ensure current scenario is always in the list
+  const uniqueScenarios = Array.from(new Set([...scenarios, scenario])).sort();
+
   // Dynamic Tab Logic
   const allTabs = [
       { id: 'tasks', label: 'Tasks', icon: <CheckCircleIcon />, contentIndex: 0 },
@@ -99,6 +105,7 @@ const ArtifactPanel: React.FC = () => {
       { id: 'notes', label: 'Notes', icon: <NoteAltIcon />, contentIndex: 4 },
       { id: 'plan', label: 'Plan', icon: <ListAltIcon />, contentIndex: 5 },
       { id: 'prefs', label: 'Prefs', icon: <SettingsIcon />, contentIndex: 6 },
+      { id: 'seating', label: 'Seating', icon: <ChairIcon />, feature: 'seating', contentIndex: 7 },
   ];
 
   const visibleTabs = allTabs.filter(t => !t.feature || (artifacts.features || []).includes(t.feature));
@@ -206,9 +213,11 @@ const ArtifactPanel: React.FC = () => {
                     <ExpandMoreIcon fontSize="small" color="action" />
                 </Box>
                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-                    <MenuItem onClick={() => handleSwitch('default')}>Default</MenuItem>
-                    <MenuItem onClick={() => handleSwitch('christmas')}>Christmas</MenuItem>
-                    <MenuItem onClick={() => handleSwitch('thanksgiving')}>Thanksgiving</MenuItem>
+                    {uniqueScenarios.map((s) => (
+                        <MenuItem key={s} onClick={() => handleSwitch(s)}>
+                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                        </MenuItem>
+                    ))}
                     <MenuItem onClick={() => { handleMenuClose(); setIsAddOpen(true); }}>
                         <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
                         New Scenario
@@ -421,6 +430,11 @@ const ArtifactPanel: React.FC = () => {
             {/* Preferences Tab (Index 6) */}
             {currentContentIndex === 6 && (
                 <PreferencesTab />
+            )}
+
+            {/* Seating Tab (Index 7) */}
+            {currentContentIndex === 7 && (
+                <SeatingTab />
             )}
 
         </Box>

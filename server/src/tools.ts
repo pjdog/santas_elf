@@ -39,7 +39,9 @@ const getArtifacts = async (userId: string, scenario = 'default'): Promise<Saved
  */
 const saveArtifacts = async (userId: string, scenario: string, data: SavedArtifacts) => {
     const key = `santas_elf:artifacts:${userId}:${sanitizeScenario(scenario)}`;
+    const scenariosKey = `santas_elf:scenarios:${userId}`;
     await redisClient.set(key, JSON.stringify(data));
+    await redisClient.sAdd(scenariosKey, sanitizeScenario(scenario));
     persistArtifactsToDisk(userId, scenario, data);
 };
 
@@ -119,7 +121,13 @@ export const tools: Record<string, { description: string, function: (input: stri
         
         const text = await generateContent(prompt);
         const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanedText);
+        const recipe = JSON.parse(cleanedText);
+        // Ensure defaults
+        if (!recipe.servings) recipe.servings = 4;
+        if (!recipe.prepTime) recipe.prepTime = '30 mins';
+        if (!recipe.ingredients) recipe.ingredients = [];
+        if (!recipe.instructions) recipe.instructions = [];
+        return recipe;
       } catch (error: any) {
         console.error("Error generating recipe:", error);
         try {
@@ -158,13 +166,18 @@ export const tools: Record<string, { description: string, function: (input: stri
           {
             "name": "Gift Name",
             "description": "Brief description...",
-            "budget": { "min": 50, "max": 100 }
+            "budget": { "min": 50, "max": 100 },
+            "searchTerm": "specific search query to find this item online"
           }
         ]
         Return ONLY the JSON array.`;
         const text = await generateContent(prompt);
         const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanedText);
+        const gifts = JSON.parse(cleanedText);
+        return gifts.map((g: any) => ({
+            ...g,
+            link: `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(g.searchTerm || g.name)}`
+        }));
       } catch (error: any) {
         console.error("Error generating gift ideas:", error);
         return [];
@@ -455,6 +468,7 @@ tools['delete_scenario'] = {
 
             await redisClient.del(artifactKey);
             await redisClient.del(chatKey);
+            await redisClient.sRem(`santas_elf:scenarios:${context.userId}`, scenario);
             
             // We don't delete the persisted file on disk for safety/audit reasons in this tool, 
             // but we could if required. Redis is the source of truth for the app.
@@ -468,6 +482,17 @@ tools['delete_scenario'] = {
             console.error("Delete scenario error", e);
             return { success: false, message: "Failed to delete scenario." };
         }
+    }
+};
+
+tools['chain_task'] = {
+    description: "Use this when you have completed one part of a larger plan and want to IMMEDIATELY trigger the next part as a new task. Input: The instruction for the next task (e.g., 'Now that budget is set, find recipes for 12 guests'). This helps break down complex goals.",
+    function: async (nextInstruction: string) => {
+        return {
+            success: true,
+            message: `Chaining to next task: ${nextInstruction}`,
+            chainedInstruction: nextInstruction
+        };
     }
 };
 

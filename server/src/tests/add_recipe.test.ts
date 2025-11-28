@@ -24,6 +24,8 @@ jest.mock('../config/db', () => ({
   get: jest.fn(),
   set: jest.fn(),
   del: jest.fn(),
+  sAdd: jest.fn(),
+  sRem: jest.fn(),
   lRange: jest.fn(),
   rPush: jest.fn(),
   lTrim: jest.fn(),

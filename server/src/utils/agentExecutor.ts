@@ -1,5 +1,5 @@
 import { tools, toolDefinitions } from '../tools';
-import { generateContent } from './llm';
+import { generateContent, generateContentStream } from './llm';
 import { SavedArtifacts } from '../routes/artifacts';
 
 interface AgentResult {
@@ -9,6 +9,7 @@ interface AgentResult {
     updatedArtifacts?: SavedArtifacts;
     lastToolUsed?: string;
     lastToolResult?: any;
+    chainedInstruction?: string;
 }
 
 interface AgentProgress {
@@ -19,6 +20,10 @@ interface AgentProgress {
     steps: string[];
     lastToolUsed?: string;
 }
+
+const STREAM_TIMEOUT_MS = Number(process.env.LLM_STREAM_TIMEOUT_MS || 20000);
+const CRITIC_TIMEOUT_MS = Number(process.env.LLM_CRITIC_TIMEOUT_MS || 15000);
+const AGENT_LOOP_TIMEOUT_MS = Number(process.env.AGENT_LOOP_TIMEOUT_MS || 28000);
 
 /**
  * Critic Helper: Validates the agent's proposed answer against the user's request.
@@ -42,7 +47,7 @@ const runCritic = async (prompt: string, contextInfo: string, proposedAnswer: st
     `;
 
     try {
-        const raw = await generateContent(criticPrompt);
+        const raw = await generateContent(criticPrompt, undefined, CRITIC_TIMEOUT_MS);
         const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
         return JSON.parse(cleaned);
     } catch (e) {
@@ -66,7 +71,7 @@ export const runAgentExecutor = async (
     prompt: string, 
     contextInfo: string, 
     maxSteps: number = 10,
-    timeoutMs: number = 60000,
+    timeoutMs: number = AGENT_LOOP_TIMEOUT_MS,
     onProgress?: (progress: AgentProgress) => Promise<void> | void
 ): Promise<AgentResult> => {
     
@@ -121,6 +126,11 @@ export const runAgentExecutor = async (
     7. Use 'manage_planner' ONLY for simple text-based todo items, budget setting, table management, or preference updates. Do NOT use it for structured content like recipes or gifts.
     8. Use 'add_recipe_to_artifacts' specifically to save a structured recipe object (found via 'find_recipe') into the planner.
     9. If the user states a preference (dietary restriction, gift recipient info, decoration style, or budget), immediately use 'manage_planner' with action 'set_preferences' to save it. Do this before searching.
+    10. COMPLEX TASKS: If the user request requires multiple steps (e.g., "Plan a party for 12 with $500"), break it down.
+        - First, acknowledge the plan (e.g., set budget).
+        - Then, use 'chain_task' to immediately trigger the next step (e.g., "Now add guests").
+        - 'chain_task' allows you to "return" a partial result and immediately start a new agent run for the next part.
+        - Use 'chain_task' instead of 'final_answer' if there is more work to be done autonomously.
 
     TOOL USAGE EXAMPLES:
     - manage_planner: { "action": "add_todo", "data": "Buy milk" } OR { "action": "set_budget", "data": 500 }. Use for simple tasks or budget setting.
@@ -155,11 +165,16 @@ export const runAgentExecutor = async (
     for (let i = 0; i < maxSteps; i++) {
         // Check for Timeout
         if (Date.now() - startTime > timeoutMs) {
-            console.warn(`[AgentExecutor] Timeout reached (${timeoutMs}ms). Stopping.`);
-            scratchpad.push(`System: Execution timed out after ${timeoutMs}ms.`);
-            finalAnswer = "I apologize, but I'm taking a bit longer than expected to complete this request. I've stopped to prevent keeping you waiting. Could you please clarify or narrow down what you'd like me to do next based on what I've found so far?";
-            await sendProgress('done', 'Timeout reached. Returning partial results.', i + 1);
-            break;
+            console.warn(`[AgentExecutor] Timeout reached (${timeoutMs}ms). Soft chaining.`);
+            await sendProgress('done', 'Taking a breather, then continuing...', i + 1);
+            return {
+                finalAnswer: "I'm breaking this task down to ensure I don't timeout.",
+                steps: [...scratchpad, "System: Soft timeout. Chaining."],
+                artifactsUpdated,
+                updatedArtifacts: lastArtifacts,
+                lastToolUsed: 'chain_task',
+                chainedInstruction: `Continue the previous request: ${prompt}`
+            };
         }
 
         // Construct the dynamic prompt with history
@@ -175,20 +190,51 @@ export const runAgentExecutor = async (
         `;
 
         try {
-            const rawResponse = await generateContent(currentPrompt);
-            const cleanedResponse = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+            let rawResponse = "";
+            const stream = generateContentStream(currentPrompt, undefined, STREAM_TIMEOUT_MS);
+            let lastUpdate = Date.now();
+
+            for await (const chunk of stream) {
+                rawResponse += chunk;
+                // Update progress frequently (200ms) to show the thought process live
+                if (Date.now() - lastUpdate > 200) {
+                    // Show the last 500 chars so the user sees the latest "thinking" text
+                    const displayMsg = rawResponse.length > 500 ? "..." + rawResponse.slice(-500) : rawResponse;
+                    await sendProgress('thinking', displayMsg, i + 1);
+                    lastUpdate = Date.now();
+                }
+            }
             
             let parsed;
             try {
+                // 1. Try standard cleanup first
+                const cleanedResponse = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
                 parsed = JSON.parse(cleanedResponse);
-                if (typeof parsed !== 'object' || parsed === null) throw new Error("Response is not an object");
-                if (!parsed.final_answer && !parsed.action) throw new Error("Response missing 'final_answer' or 'action'");
-            } catch (e: any) {
-                // Self-correction attempt
-                console.warn(`[AgentExecutor] JSON Parse/Validation Error on step ${i}:`, e.message);
-                scratchpad.push(`System: Invalid JSON returned (${e.message}). Please format as strict JSON with "action" or "final_answer".`);
-                await sendProgress('thinking', 'Fixing JSON formatting...', i + 1);
-                continue;
+            } catch (e) {
+                try {
+                    // 2. Fallback: Extract JSON substring
+                    const firstOpen = rawResponse.indexOf('{');
+                    const lastClose = rawResponse.lastIndexOf('}');
+                    if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
+                         const potentialJson = rawResponse.substring(firstOpen, lastClose + 1);
+                         parsed = JSON.parse(potentialJson);
+                    } else {
+                        throw new Error("Could not find valid JSON in response.");
+                    }
+                } catch (parseErr: any) {
+                     console.warn(`[AgentExecutor] JSON Parse/Validation Error on step ${i}:`, parseErr.message);
+                     scratchpad.push(`System: Invalid JSON returned (${parseErr.message}). Please format as strict JSON with "action" or "final_answer".`);
+                     await sendProgress('thinking', 'Fixing JSON formatting...', i + 1);
+                     continue;
+                }
+            }
+
+            if (typeof parsed !== 'object' || parsed === null || (!parsed.final_answer && !parsed.action)) {
+                 const msg = "Response missing 'final_answer' or 'action'";
+                 console.warn(`[AgentExecutor] Validation Error on step ${i}:`, msg);
+                 scratchpad.push(`System: Invalid JSON structure (${msg}).`);
+                 await sendProgress('thinking', 'Fixing JSON structure...', i + 1);
+                 continue;
             }
 
             if (parsed.final_answer) {
@@ -223,6 +269,20 @@ export const runAgentExecutor = async (
                     // Execute Tool
                     // We pass context (userId, scenario) so tools like 'manage_planner' work
                     const result = await tools[parsed.action].function(parsed.action_input, { userId, scenario });
+                    
+                    // Check for chain_task immediate return
+                    if (parsed.action === 'chain_task') {
+                        await sendProgress('done', `Chaining: ${result.chainedInstruction}`, i + 1);
+                        return {
+                            finalAnswer: result.message,
+                            steps: scratchpad,
+                            artifactsUpdated,
+                            updatedArtifacts: lastArtifacts,
+                            lastToolUsed: 'chain_task',
+                            lastToolResult: result,
+                            chainedInstruction: result.chainedInstruction
+                        };
+                    }
                     
                     // Capture tool usage for UI hints
                     lastToolUsed = parsed.action;

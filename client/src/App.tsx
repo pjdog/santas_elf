@@ -41,6 +41,14 @@ const AuthErrorAlert = () => {
   );
 };
 
+// Component to redirect to external docs
+export const RedirectToDocs = () => {
+    useEffect(() => {
+        window.location.href = "http://localhost:8080/api-docs";
+    }, []);
+    return <Box display="flex" justifyContent="center" mt={10}><CircularProgress /></Box>;
+};
+
 const App: React.FC = () => {
   const userContext = useContext(UserContext);
 
@@ -94,11 +102,13 @@ const App: React.FC = () => {
                   */}
                   <Route path="/llm-setup" element={<LLMSetup />} />
                   <Route path="/elf-admin/logs" element={<AdminLogsPage />} />
+                  <Route path="/api-docs" element={<RedirectToDocs />} />
                   <Route path="*" element={<HomePage />} />
                 </Routes>
             ) : (
                 <Routes>
                     <Route path="/setup" element={<SetupPage />} />
+                    <Route path="/api-docs" element={<RedirectToDocs />} />
                     <Route path="*" element={
                         <Box textAlign="center" mt={10}>
                             <Typography variant="h2" gutterBottom sx={{ background: '-webkit-linear-gradient(45deg, #FF3B30 30%, #FF9500 90%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>

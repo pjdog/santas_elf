@@ -83,10 +83,13 @@ interface ArtifactContextType {
   artifacts: SavedArtifacts;
   loading: boolean;
   scenario: string;
+  scenarios: string[];
   /** Updates the current active scenario. */
   setScenario: (name: string) => Promise<void>;
   /** Reloads artifacts from the server. */
   refreshArtifacts: (targetScenario?: string) => Promise<void>;
+  /** Updates artifacts state directly from a payload (avoids fetch). */
+  updateArtifacts: (data: SavedArtifacts) => void;
   /** Persists updated artifacts to the server. */
   saveArtifacts: (updated: SavedArtifacts) => Promise<void>;
   addRecipe: (recipe: any) => void;
@@ -126,14 +129,28 @@ export const ArtifactProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [scenario, setScenarioState] = useState(() => {
       return localStorage.getItem('currentScenario') || 'default';
   });
+  const [scenarios, setScenarios] = useState<string[]>(['default']);
   const [loading, setLoading] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     refreshArtifacts(scenario);
+    fetchScenarios();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario]);
+
+  const fetchScenarios = async () => {
+      try {
+          const res = await fetch('/api/artifacts/scenarios');
+          if (res.ok) {
+              const list = await res.json();
+              setScenarios(list);
+          }
+      } catch (e) {
+          console.error("Failed to fetch scenarios", e);
+      }
+  };
 
   const cleanScenario = (value: string) => {
     const trimmed = value?.trim().toLowerCase();
@@ -146,6 +163,7 @@ export const ArtifactProvider: React.FC<{ children: ReactNode }> = ({ children }
           await fetch(`/api/artifacts?scenario=${encodeURIComponent(scenarioName)}`, {
               method: 'DELETE'
           });
+          await fetchScenarios();
           // Reset to default after deletion if deleting current
           if (scenarioName === scenario) {
               setScenario('default');
@@ -162,28 +180,33 @@ export const ArtifactProvider: React.FC<{ children: ReactNode }> = ({ children }
         const res = await fetch(`/api/artifacts?scenario=${encodeURIComponent(scenarioName)}`);
         if (res.ok) {
             const data = await res.json();
-            setArtifacts({
-                todos: Array.isArray(data?.todos) ? data.todos : [],
-                recipes: Array.isArray(data?.recipes) ? data.recipes : [],
-                gifts: Array.isArray(data?.gifts) ? data.gifts : [],
-                decorations: Array.isArray(data?.decorations) ? data.decorations : [],
-                seating: Array.isArray(data?.seating) ? data.seating : [],
-                budget: data?.budget || { limit: 0 },
-                agentNotes: Array.isArray(data?.agentNotes) ? data.agentNotes : [],
-                features: Array.isArray(data?.features) ? data.features : ['recipes', 'gifts', 'decorations'],
-                preferences: data?.preferences || {
-                    dietary: { allergies: [], dislikes: [], diets: [] },
-                    gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
-                    decorations: { room: "", style: "", preferredColors: [] }
-                },
-                plan: data?.plan || null
-            });
+            updateArtifacts(data);
         }
     } catch (e) {
         console.error("Failed to load artifacts", e);
     } finally {
         setLoading(false);
     }
+  };
+
+  const updateArtifacts = (data: any) => {
+      if (!data) return;
+      setArtifacts({
+          todos: Array.isArray(data?.todos) ? data.todos : [],
+          recipes: Array.isArray(data?.recipes) ? data.recipes : [],
+          gifts: Array.isArray(data?.gifts) ? data.gifts : [],
+          decorations: Array.isArray(data?.decorations) ? data.decorations : [],
+          seating: Array.isArray(data?.seating) ? data.seating : [],
+          budget: data?.budget || { limit: 0 },
+          agentNotes: Array.isArray(data?.agentNotes) ? data.agentNotes : [],
+          features: Array.isArray(data?.features) ? data.features : ['recipes', 'gifts', 'decorations'],
+          preferences: data?.preferences || {
+              dietary: { allergies: [], dislikes: [], diets: [] },
+              gifts: { recipientRelationship: "", recipientAge: null, recipientInterests: [], budgetMin: 0, budgetMax: 0, dislikes: [] },
+              decorations: { room: "", style: "", preferredColors: [] }
+          },
+          plan: data?.plan || null
+      });
   };
 
   const saveArtifacts = async (updated: SavedArtifacts) => {
@@ -195,6 +218,7 @@ export const ArtifactProvider: React.FC<{ children: ReactNode }> = ({ children }
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updated)
         });
+        await fetchScenarios(); // Refresh list in case new scenario was implicitly created
     } catch (e) {
         console.error("Failed to save artifacts", e);
     }
@@ -232,8 +256,10 @@ export const ArtifactProvider: React.FC<{ children: ReactNode }> = ({ children }
         artifacts, 
         loading, 
         scenario,
+        scenarios,
         setScenario,
         refreshArtifacts,
+        updateArtifacts,
         saveArtifacts, 
         addRecipe, 
         addGift, 

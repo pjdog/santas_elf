@@ -8,6 +8,8 @@ import { persistArtifactsToDisk } from '../utils/artifactFs';
 jest.mock('../config/db', () => ({
   get: jest.fn(),
   set: jest.fn(),
+  sAdd: jest.fn(),
+  sRem: jest.fn(),
   incr: jest.fn(),
   expire: jest.fn(),
 }));

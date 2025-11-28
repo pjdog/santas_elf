@@ -5,9 +5,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
 ENV_TEMPLATE="$SCRIPT_DIR/.env.template"
 
-# Prefer modern Docker Compose plugin; fallback to legacy docker-compose
+# Prefer modern Docker Compose plugin; fallback to bundled v2 binary if present; else legacy docker-compose
+PLUGIN_BIN="$HOME/.docker/cli-plugins/docker-compose"
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
   COMPOSE="docker compose"
+elif [ -x "$PLUGIN_BIN" ]; then
+  COMPOSE="$PLUGIN_BIN"
 else
   COMPOSE="docker-compose"
 fi

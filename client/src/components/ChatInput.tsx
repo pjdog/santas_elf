@@ -99,7 +99,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = false, 
         sx={{
             p: '8px',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-end',
             borderRadius: 28,
             backgroundColor: '#fff',
             boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
@@ -139,13 +139,15 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = false, 
         </IconButton>
         
         <InputBase
-            sx={{ ml: 1, flex: 1, fontSize: '1rem', fontWeight: 500 }}
+            sx={{ ml: 1, flex: 1, fontSize: '1rem', fontWeight: 500, py: 1 }}
             placeholder="Ask Santa's Elf..."
             inputProps={{ 'aria-label': 'ask santas elf' }}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={disabled}
+            multiline
+            maxRows={6}
         />
         
         <IconButton 

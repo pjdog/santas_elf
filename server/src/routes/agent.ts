@@ -13,6 +13,8 @@ import axios from 'axios';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 const PROGRESS_TTL_SECONDS = 120;
+const AGENT_LOOP_TIMEOUT_MS = Number(process.env.AGENT_LOOP_TIMEOUT_MS || 28000);
+const FOUNDATION_TIMEOUT_MS = Number(process.env.FOUNDATION_LLM_TIMEOUT_MS || 15000);
 
 const saveProgress = async (userId: string | undefined, scenario: string, progress: any) => {
     if (!userId) return;
@@ -158,7 +160,7 @@ const ensureFoundationNotes = async (userId: string, scenario: string, prompt: s
             "priorities": ["short bullet priorities"],
             "funFact": "A quick, interesting 1-sentence fun fact or tradition related to this specific occasion (search your knowledge base)."
         }`;
-        const text = await generateContent(llmPrompt);
+        const text = await generateContent(llmPrompt, undefined, FOUNDATION_TIMEOUT_MS);
         const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
         parsed = JSON.parse(cleaned);
     } catch (err) {
@@ -471,7 +473,7 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
             prompt, 
             contextInfo + `\n\nHISTORY:\n${history}`,
             10,
-            60000,
+            AGENT_LOOP_TIMEOUT_MS,
             async (progress) => {
                 await saveProgress(userId, scenario, progress);
             }
@@ -501,6 +503,9 @@ router.post('/chat', upload.single('image'), async (req: Request, res: Response)
             // The message from the tool ("Switching to...") is already in finalAnswer usually, 
             // but we can enforce it if the agent didn't say it.
             if (!replyMessage) replyMessage = `Switching to ${replyData}...`;
+        } else if (agentResult.lastToolUsed === 'chain_task' && agentResult.chainedInstruction) {
+             replyType = 'continue';
+             replyData = agentResult.chainedInstruction;
         }
 
         // Inject fun fact and todos if we just established the foundation

@@ -5,6 +5,7 @@ import redisClient from '../config/db';
 jest.mock('../config/db', () => ({
   get: jest.fn(),
   set: jest.fn(),
+  sAdd: jest.fn(),
 }));
 
 describe('Tool: manage_planner', () => {

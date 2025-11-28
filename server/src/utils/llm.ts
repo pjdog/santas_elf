@@ -2,9 +2,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import { getConfig } from './configManager';
 
-const DEFAULT_TIMEOUT_MS = 12000;
+const DEFAULT_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 20000);
 const RETRY_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 400;
+
+const resolveTimeout = (override?: number) => override && override > 0 ? override : DEFAULT_TIMEOUT_MS;
 
 /**
  * Wraps a promise with a timeout logic.
@@ -16,10 +18,11 @@ const RETRY_DELAY_MS = 400;
  * @throws Error if the operation times out.
  */
 const withTimeout = async <T>(promise: Promise<T>, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> => {
+    const effectiveTimeout = resolveTimeout(timeoutMs);
     return await Promise.race([
         promise,
         new Promise<T>((_resolve, reject) =>
-            setTimeout(() => reject(new Error('LLM request timed out')), timeoutMs)
+            setTimeout(() => reject(new Error('LLM request timed out')), effectiveTimeout)
         ),
     ]);
 };
@@ -74,10 +77,11 @@ export const getLLMConfig = async () => {
  * 
  * @param {string} prompt - The user's input prompt.
  * @param {string} [systemInstruction] - Optional system instruction to guide the model's behavior.
+ * @param {number} [timeoutMs] - Optional timeout override for this request.
  * @returns {Promise<string>} The generated text content.
  * @throws {Error} If the API key is missing or the provider is unsupported.
  */
-export const generateContent = async (prompt: string, systemInstruction?: string): Promise<string> => {
+export const generateContent = async (prompt: string, systemInstruction?: string, timeoutMs?: number): Promise<string> => {
     const config = await getLLMConfig();
 
     if (!config.apiKey) {
@@ -90,7 +94,7 @@ export const generateContent = async (prompt: string, systemInstruction?: string
         // Gemini SDK doesn't strictly separate system prompt in v1 beta consistently across all models via simple calls, 
         // so prepending is a safe compatibility approach for text-only models.
         const fullPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
-        const result = await withRetry(() => withTimeout(model.generateContent(fullPrompt)), 'gemini');
+        const result = await withRetry(() => withTimeout(model.generateContent(fullPrompt), timeoutMs), 'gemini');
         return result.response.text();
     } 
     else if (config.provider === 'openai' || config.provider === 'custom') {
@@ -110,7 +114,7 @@ export const generateContent = async (prompt: string, systemInstruction?: string
                     'Authorization': `Bearer ${config.apiKey}`,
                     'Content-Type': 'application/json'
                 },
-                timeout: DEFAULT_TIMEOUT_MS
+                timeout: resolveTimeout(timeoutMs)
             }), config.provider);
 
         return response.data.choices[0].message.content;
@@ -130,10 +134,42 @@ export const generateContent = async (prompt: string, systemInstruction?: string
                     'anthropic-version': '2023-06-01',
                     'Content-Type': 'application/json'
                 },
-                timeout: DEFAULT_TIMEOUT_MS
+                timeout: resolveTimeout(timeoutMs)
              }), 'anthropic');
          return response.data.content[0].text;
     }
 
     throw new Error(`Unsupported provider: ${config.provider}`);
+};
+
+/**
+ * Generates content as a stream.
+ * @param prompt 
+ * @param systemInstruction 
+ * @param timeoutMs - Optional timeout override for the initial streaming response.
+ */
+export const generateContentStream = async function* (prompt: string, systemInstruction?: string, timeoutMs?: number): AsyncGenerator<string, void, unknown> {
+    const config = await getLLMConfig();
+
+    if (!config.apiKey) {
+        throw new Error('LLM API Key not configured.');
+    }
+
+    if (config.provider === 'gemini') {
+        const genAI = new GoogleGenerativeAI(config.apiKey);
+        const model = genAI.getGenerativeModel({ model: config.model });
+        const fullPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
+
+        // We wait for the STREAM to start (initial response) with a timeout, but not the whole stream
+        const result = await withRetry(() => withTimeout(model.generateContentStream(fullPrompt), timeoutMs), 'gemini');
+
+        for await (const chunk of result.stream) {
+            const text = chunk.text();
+            if (text) yield text;
+        }
+    } else {
+        // Fallback: use non-streaming and yield once
+        const full = await generateContent(prompt, systemInstruction, timeoutMs);
+        yield full;
+    }
 };

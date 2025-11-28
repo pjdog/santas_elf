@@ -299,6 +299,26 @@ const validateArtifacts = (data: any): { valid: boolean; cleaned?: SavedArtifact
 };
 
 /**
+ * GET /scenarios
+ * Lists all active scenarios for the authenticated user.
+ */
+router.get('/scenarios', async (req, res) => {
+    // @ts-ignore
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    try {
+        const scenarios = await redisClient.sMembers(`santas_elf:scenarios:${userId}`);
+        // Ensure 'default' is always present
+        if (!scenarios.includes('default')) scenarios.push('default');
+        res.json(scenarios.sort());
+    } catch (error) {
+        console.error('Error fetching scenarios:', error);
+        res.status(500).json({ message: 'Failed to fetch scenarios' });
+    }
+});
+
+/**
  * GET /
  * Fetches the current artifacts for the authenticated user.
  */
@@ -356,6 +376,7 @@ router.post('/', rateLimit, async (req, res) => {
 
   try {
     await redisClient.set(`santas_elf:artifacts:${userId}:${scenario}`, JSON.stringify(cleaned));
+    await redisClient.sAdd(`santas_elf:scenarios:${userId}`, scenario);
     // Best-effort export to disk for CLI/debugging; scenario drives folder name
     persistArtifactsToDisk(userId, scenario, cleaned);
     res.json(cleaned);
@@ -385,6 +406,7 @@ router.delete('/', async (req, res) => {
 
         await redisClient.del(artifactKey);
         await redisClient.del(chatKey);
+        await redisClient.sRem(`santas_elf:scenarios:${userId}`, scenario);
         
         // We should also probably remove it from any list of scenarios if we tracked that, 
         // but currently scenarios are implicit.

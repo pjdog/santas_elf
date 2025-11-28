@@ -7,6 +7,7 @@ RUN npm ci
 COPY tsconfig.json ./tsconfig.json
 COPY src ./src
 RUN npm run build
+RUN npm run docs
 
 FROM node:20-alpine AS test
 WORKDIR /app
@@ -28,6 +29,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/docs ./docs
 ENV NODE_ENV=production
 EXPOSE 5000
 

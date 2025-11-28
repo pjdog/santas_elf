@@ -80,7 +80,7 @@ const RecipeWidget: React.FC<RecipeWidgetProps> = ({ data }) => {
         <Divider textAlign="left" sx={{ mb: 1.5, color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600 }}>INGREDIENTS</Divider>
         
         <List dense disablePadding sx={{ mb: 3 }}>
-            {recipe.ingredients.map((ing: any, idx: number) => (
+            {(recipe.ingredients || []).map((ing: any, idx: number) => (
                 <ListItem key={idx} disablePadding sx={{ py: 0.5 }}>
                     <Box 
                         component="span" 
@@ -104,7 +104,7 @@ const RecipeWidget: React.FC<RecipeWidgetProps> = ({ data }) => {
         <Divider textAlign="left" sx={{ mb: 1.5, color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600 }}>INSTRUCTIONS</Divider>
         
         <Box sx={{ pl: 1 }}>
-            {recipe.instructions.map((step: string, i: number) => (
+            {(recipe.instructions || []).map((step: string, i: number) => (
                 <Box key={i} sx={{ display: 'flex', mb: 1.5 }}>
                     <Typography 
                         variant="caption" 
